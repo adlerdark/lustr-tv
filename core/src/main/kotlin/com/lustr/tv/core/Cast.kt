@@ -9,9 +9,6 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
-/** The sidebar entry that opens the cast browser (not a library name: it can't be typed). */
-const val CAST_BROWSER = "\u0000cast"
-
 /** Labels as in the web app. */
 fun genderLabel(gender: String?): String = when (gender) {
     "female" -> "Female"
@@ -45,6 +42,14 @@ enum class CastGenderFilter(val label: String, val genders: Set<String>?) {
     TRANS("Trans", setOf("trans_female", "trans_male")),
 }
 
+/** Pro / Amateur / Celeb, like the web app's cast browser (no category = pro). */
+enum class CastCategoryFilter(val label: String, val category: String?) {
+    ALL("All types", null),
+    PRO("Pro", "pro"),
+    AMATEUR("Amateur", "amateur"),
+    CELEB("Celeb", "celeb"),
+}
+
 /** The cast browser's search / filters, applied on the TV (the server sends everyone at once). */
 object CastBrowse {
     fun filter(
@@ -53,12 +58,14 @@ object CastBrowse {
         favoritesOnly: Boolean = false,
         gender: CastGenderFilter = CastGenderFilter.ALL,
         sort: CastSort = CastSort.MOST_VIDEOS,
+        category: CastCategoryFilter = CastCategoryFilter.ALL,
     ): List<CastMember> {
         val q = query.trim().lowercase()
         val shown = cast.filter { c ->
             (q.isEmpty() || q in c.name.lowercase() || c.aliases.any { q in it.lowercase() }) &&
                 (!favoritesOnly || c.isFavorite) &&
-                (gender.genders == null || (c.gender ?: "female") in gender.genders)
+                (gender.genders == null || (c.gender ?: "female") in gender.genders) &&
+                (category.category == null || (c.category ?: "pro") == category.category)
         }
         return when (sort) {
             CastSort.MOST_VIDEOS -> shown.sortedWith(compareByDescending<CastMember> { it.count }.thenBy { it.name.lowercase() })

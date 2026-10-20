@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
+import com.lustr.tv.core.ALL_VIDEOS
+import com.lustr.tv.core.CastBrowse
+import com.lustr.tv.core.CastMember
 import com.lustr.tv.core.FilterCounts
 import com.lustr.tv.core.HomeRow
 import com.lustr.tv.core.LibraryTab
@@ -11,9 +14,13 @@ import com.lustr.tv.core.LibraryTree
 import com.lustr.tv.core.Movie
 import com.lustr.tv.core.MovieDetail
 import com.lustr.tv.core.MovieSort
+import com.lustr.tv.core.Letters
+import com.lustr.tv.core.Page
 import com.lustr.tv.core.Pager
+import com.lustr.tv.core.SEARCH
 import com.lustr.tv.core.SidebarNode
 import com.lustr.tv.core.SidebarState
+import com.lustr.tv.core.SortOption
 import com.lustr.tv.core.Video
 import com.lustr.tv.core.VideoCollection
 import com.lustr.tv.core.VideoFilter
@@ -60,6 +67,21 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
 
     fun click(node: SidebarNode) = _sidebar.update { it.click(node) }
 
+    /** Home's tabs: 0 = Recommended, 1 = Cast. */
+    private val _homeTab = MutableStateFlow(0)
+    val homeTab: StateFlow<Int> = _homeTab
+    fun selectHomeTab(i: Int) {
+        _homeTab.value = i
+    }
+
+    /** The last search (Search in the sidebar); its results open as their own page. */
+    private val _search = MutableStateFlow("")
+    val search: StateFlow<String> = _search
+    fun search(query: String) {
+        _search.value = query
+        _sidebar.update { it.open(SEARCH) }
+    }
+
     fun selectTab(library: String, tab: LibraryTab) = _tabs.update { it + (library to tab) }
 
     fun logOut(onDone: () -> Unit) {
@@ -98,7 +120,7 @@ class LibraryViewModel(private val container: AppContainer, private val library:
     val filter: StateFlow<VideoFilter> = _filter
 
     val pager = Pager<Video>(viewModelScope, pageSize = 48, onError = container::onError) { page, limit ->
-        container.client.videos(library, _filter.value, page, limit, seed).let { it.items to it.total }
+        container.client.videos(library, _filter.value, page, limit, seed).let { Page(it.items, it.total, it.letters) }
     }
 
     /** Tag / site counts for the filter panel (null while loading). */
@@ -137,8 +159,8 @@ class CollectionsViewModel(private val container: AppContainer, private val libr
     val open: StateFlow<VideoCollection?> = _open
 
     val items = Pager<Video>(viewModelScope, pageSize = 60, onError = container::onError) { page, limit ->
-        val id = _open.value?.id ?: return@Pager emptyList<Video>() to 0
-        container.client.collectionItems(id, page, limit).let { it.items to it.total }
+        val id = _open.value?.id ?: return@Pager Page(emptyList(), 0)
+        container.client.collectionItems(id, page, limit).let { Page(it.items, it.total) }
     }
 
     init {
@@ -169,8 +191,19 @@ class MoviesViewModel(private val container: AppContainer, private val library: 
     private val _sort = MutableStateFlow(MovieSort.TITLE)
     val sort: StateFlow<MovieSort> = _sort
 
-    val movies = Pager<Movie>(viewModelScope, pageSize = 60, onError = container::onError) { page, limit ->
-        container.client.movies(library, _filter.value, _sort.value, page, limit).let { it.movies to it.total }
+    /**
+     * Big pages (movies are few): sorted by title, the #-Z bar comes from the server when it sends
+     * letters, else from the titles loaded here (Letters.index).
+     */
+    val movies = Pager<Movie>(viewModelScope, pageSize = 500, onError = container::onError) { page, limit ->
+        container.client.movies(library, _filter.value, _sort.value, page, limit).let { r ->
+            val letters = when {
+                _sort.value != MovieSort.TITLE -> emptyList()
+                r.letters.isNotEmpty() -> r.letters
+                else -> Letters.index(r.movies.map { it.displayTitle }, offset = (page - 1) * limit)
+            }
+            Page(r.movies, r.total, letters)
+        }
     }
 
     /** Tag / site counts for the filter panel (null until it's opened). */
@@ -214,5 +247,29 @@ class MoviesViewModel(private val container: AppContainer, private val library: 
 
     fun close() {
         _open.value = null
+    }
+}
+
+/** Search results for the whole site: performers and movies whose names match, and every matching video. */
+class SearchViewModel(private val container: AppContainer, val query: String) : ViewModel() {
+    val videos = Pager<Video>(viewModelScope, pageSize = 48, onError = container::onError) { page, limit ->
+        container.client.videos(ALL_VIDEOS, VideoFilter(query = query, sortBy = SortOption.TITLE.value), page, limit)
+            .let { Page(it.items, it.total) }
+    }
+
+    private val _cast = MutableStateFlow<List<CastMember>>(emptyList())
+    val cast: StateFlow<List<CastMember>> = _cast
+
+    private val _movies = MutableStateFlow<List<Movie>>(emptyList())
+    val movies: StateFlow<List<Movie>> = _movies
+
+    init {
+        videos.reset()
+        viewModelScope.launch {
+            (container.load { cast() } as? Load.Ready)?.let { _cast.value = CastBrowse.filter(it.value, query = query).take(30) }
+        }
+        viewModelScope.launch {
+            (container.load { movies(ALL_VIDEOS, VideoFilter(query = query), limit = 30) } as? Load.Ready)?.let { _movies.value = it.value.movies }
+        }
     }
 }

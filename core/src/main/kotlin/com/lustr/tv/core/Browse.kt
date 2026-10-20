@@ -61,7 +61,7 @@ object LibraryTree {
         // in the order the server lists the groups.
         val order = init.libraryOrder + groups.filter { (name, g) -> g.parent.isNullOrEmpty() && name !in init.libraryOrder }.keys
 
-        val out = mutableListOf(SidebarNode(HOME, isGroup = false), SidebarNode(CAST_BROWSER, isGroup = false, label = "Cast"))
+        val out = mutableListOf(SidebarNode(HOME, isGroup = false))
         if (ALL_VIDEOS !in hidden) out += SidebarNode(ALL_VIDEOS, isGroup = false)
         for (item in order) {
             val g = groups[item]
@@ -108,7 +108,13 @@ data class SidebarState(
         active == node.name -> copy(expanded = expanded - node.name)
         else -> copy(active = node.name)
     }
+
+    /** Open a page that isn't a sidebar line (e.g. [SEARCH] results). */
+    fun open(name: String): SidebarState = copy(active = name)
 }
+
+/** The search results page (opened from the sidebar's Search; not a library name: it can't be typed). */
+const val SEARCH = "\u0000search"
 
 /** Filters of the Library tab; the same parameters as the web app's /api/videos calls. */
 data class VideoFilter(

@@ -28,6 +28,8 @@ import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
 import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
+import com.lustr.tv.core.Letters
+import com.lustr.tv.core.MovieDetail
 import com.lustr.tv.core.MovieSort
 import com.lustr.tv.core.PagedState
 import com.lustr.tv.core.VideoFilter
@@ -102,6 +104,9 @@ fun LibraryTabContent(container: AppContainer, library: String, imageUrl: ImageU
             state = state,
             onLoadMore = vm.pager::loadMore,
             onRetry = vm.pager::retry,
+            onLoadPrevious = vm.pager::loadPrevious,
+            letters = if (filter.sortBy in Letters.SORTS) state.letters else emptyList(),     // #-Z bar
+            onJump = { vm.pager.jumpTo(it) },
             key = { it.path },
             emptyText = if (filter.activeCount > 0 || filter.query.isNotBlank()) "No videos match these filters." else "No videos here yet.",
         ) { video ->
@@ -221,6 +226,9 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
                 state = movies,
                 onLoadMore = vm.movies::loadMore,
                 onRetry = vm.movies::retry,
+                onLoadPrevious = vm.movies::loadPrevious,
+                letters = movies.letters,                       // only when sorted by title
+                onJump = { vm.movies.jumpTo(it) },
                 key = { it.id },
                 emptyText = if (filtered) "No movies match." else "No movies here. lustr builds them from scenes (web app: Movies tab).",
                 minCell = 150.dp,
@@ -244,37 +252,7 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
             when (o) {
                 Load.Loading -> CenteredMessage("Loading…")
                 is Load.Failed -> CenteredMessage(o.message) { Button(onClick = vm::close) { Text("Back") } }
-                is Load.Ready -> {
-                    val movie = o.value.movie
-                    PagedGrid(
-                        state = PagedState(items = o.value.items, total = o.value.items.size),
-                        onLoadMore = {},
-                        onRetry = {},
-                        key = { it.path },
-                        emptyText = "No scenes.",
-                        header = {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                DetailHeader(
-                                    title = movie?.displayTitle.orEmpty(),
-                                    lines = listOfNotNull(
-                                        listOfNotNull(
-                                            movie?.year?.takeIf { it.isNotBlank() },
-                                            movie?.studio?.takeIf { it.isNotBlank() },
-                                            movie?.runtime?.let { "${it.toInt()} min" },
-                                            "${o.value.items.size} scenes",
-                                        ).joinToString(" · "),
-                                        movie?.director?.takeIf { it.isNotBlank() }?.let { "Director: $it" },
-                                        movie?.description?.takeIf { it.isNotBlank() },
-                                    ),
-                                    onBack = vm::close,
-                                )
-                            }
-                        },
-                    ) { video ->
-                        val label = video.movieScene?.takeIf { it.isNotBlank() }?.let { "Scene $it" }
-                        VideoCard(video, imageUrl, onClick = { onPlay(video) }, label = label)
-                    }
-                }
+                is Load.Ready -> MovieDetailContent(o.value, imageUrl, onPlay, onBack = vm::close)
             }
         }
     }
@@ -297,9 +275,43 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
     }
 }
 
+/** One movie: its details, then its scenes in order (landscape cards). Used by the Movies tab and search. */
+@Composable
+fun MovieDetailContent(detail: MovieDetail, imageUrl: ImageUrl, onPlay: (Video) -> Unit, onBack: () -> Unit) {
+    val movie = detail.movie
+    PagedGrid(
+        state = PagedState(items = detail.items, total = detail.items.size),
+        onLoadMore = {},
+        onRetry = {},
+        key = { it.path },
+        emptyText = "No scenes.",
+        header = {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                DetailHeader(
+                    title = movie?.displayTitle.orEmpty(),
+                    lines = listOfNotNull(
+                        listOfNotNull(
+                            movie?.year?.takeIf { it.isNotBlank() },
+                            movie?.studio?.takeIf { it.isNotBlank() },
+                            movie?.runtime?.let { "${it.toInt()} min" },
+                            "${detail.items.size} scenes",
+                        ).joinToString(" · "),
+                        movie?.director?.takeIf { it.isNotBlank() }?.let { "Director: $it" },
+                        movie?.description?.takeIf { it.isNotBlank() },
+                    ),
+                    onBack = onBack,
+                )
+            }
+        },
+    ) { video ->
+        val label = video.movieScene?.takeIf { it.isNotBlank() }?.let { "Scene $it" }
+        VideoCard(video, imageUrl, onClick = { onPlay(video) }, label = label)
+    }
+}
+
 /** Title, a few lines of details and a Back button, above an opened collection / movie. */
 @Composable
-private fun DetailHeader(title: String, lines: List<String>, onBack: () -> Unit) {
+internal fun DetailHeader(title: String, lines: List<String>, onBack: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             OutlinedButton(onClick = onBack) { Text("‹ Back") }

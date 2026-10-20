@@ -37,17 +37,17 @@ class BrowseTest {
         reply("init_groups")          // order: Studios, TestLib, LibA, LibB; Studios = [LibA, Extras]; Extras = [LibB]
         val tree = LibraryTree.build(client.init())
         // LibA / LibB are in groups, so not repeated at the top; Extras is a sub-group, so only inside Studios
-        assertEquals(listOf("Home", "Cast", "All Videos", "Studios/", "TestLib"), names(LibraryTree.visible(tree, emptySet())))
+        assertEquals(listOf("Home", "All Videos", "Studios/", "TestLib"), names(LibraryTree.visible(tree, emptySet())))
         assertEquals(
-            listOf("Home", "Cast", "All Videos", "Studios/", "  LibA", "  Extras/", "TestLib"),
+            listOf("Home", "All Videos", "Studios/", "  LibA", "  Extras/", "TestLib"),
             names(LibraryTree.visible(tree, setOf("Studios"))),
         )
         assertEquals(
-            listOf("Home", "Cast", "All Videos", "Studios/", "  LibA", "  Extras/", "    LibB", "TestLib"),
+            listOf("Home", "All Videos", "Studios/", "  LibA", "  Extras/", "    LibB", "TestLib"),
             names(LibraryTree.visible(tree, setOf("Studios", "Extras"))),
         )
         // an expanded sub-group inside a collapsed group stays out of sight
-        assertEquals(listOf("Home", "Cast", "All Videos", "Studios/", "TestLib"), names(LibraryTree.visible(tree, setOf("Extras"))))
+        assertEquals(listOf("Home", "All Videos", "Studios/", "TestLib"), names(LibraryTree.visible(tree, setOf("Extras"))))
     }
 
     @Test
@@ -57,9 +57,9 @@ class BrowseTest {
         reply("init_groups_not_in_order")
         val tree = LibraryTree.build(client.init())
         // like the web app: ungrouped libraries in order, then the top-level groups as the server lists them
-        assertEquals(listOf("Home", "Cast", "Loose", "GroupA/", "GroupD/", "GroupE/"), names(LibraryTree.visible(tree, emptySet())))
+        assertEquals(listOf("Home", "Loose", "GroupA/", "GroupD/", "GroupE/"), names(LibraryTree.visible(tree, emptySet())))
         assertEquals(
-            listOf("Home", "Cast", "Loose", "GroupA/", "  SubB/", "    B1", "    B2", "  A1", "  A2", "  SubC/", "    C1", "GroupD/", "GroupE/"),
+            listOf("Home", "Loose", "GroupA/", "  SubB/", "    B1", "    B2", "  A1", "  A2", "  SubC/", "    C1", "GroupD/", "GroupE/"),
             names(LibraryTree.visible(tree, setOf("GroupA", "SubB", "SubC"))),
         )
     }
@@ -77,11 +77,11 @@ class BrowseTest {
         )
         val tree = LibraryTree.build(init)
         // no All Videos (hidden), Gay filtered out, Hidden hidden, Loose (not in the order) at the end
-        assertEquals(listOf("Home", "Cast", "G/", "  Straight", "Mixed", "Loose"), names(LibraryTree.visible(tree, setOf("G"))))
+        assertEquals(listOf("Home", "G/", "  Straight", "Mixed", "Loose"), names(LibraryTree.visible(tree, setOf("G"))))
 
         // without filtering, empty groups stay and every type shows
         val all = LibraryTree.build(init.copy(displayFilter = listOf("straight", "gay")))
-        assertEquals(listOf("Home", "Cast", "G/", "  Straight", "  Gay", "Mixed", "Loose"), names(LibraryTree.visible(all, setOf("G"))))
+        assertEquals(listOf("Home", "G/", "  Straight", "  Gay", "Mixed", "Loose"), names(LibraryTree.visible(all, setOf("G"))))
     }
 
     @Test
@@ -91,7 +91,7 @@ class BrowseTest {
             libraryOrder = listOf("G"),
             libraryGroups = mapOf("G" to LibraryGroup(listOf("A", "G"))),
         )
-        assertEquals(listOf("Home", "Cast", "All Videos", "G/", "  A"), names(LibraryTree.visible(LibraryTree.build(init), setOf("G"))))
+        assertEquals(listOf("Home", "All Videos", "G/", "  A"), names(LibraryTree.visible(LibraryTree.build(init), setOf("G"))))
     }
 
     @Test

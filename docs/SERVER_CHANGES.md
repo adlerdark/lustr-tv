@@ -208,6 +208,37 @@ the libraries is lost on each restart (they always end up last). Suggested: keep
 either a library or a group (`if l in self.libraries or l in self.library_groups`), in both the SQLite
 and the JSON branch.
 
+## 6. A frame at a given time, for chapter thumbnails (optional, recommended)
+
+The TV's player shows the video's chapters / markers as a row of cards. Today each card's picture is
+the nearest seek-bar preview tile (`thumbs.vtt` / `sprite.jpg`), which can be up to `duration / 81`
+seconds away from the marker. An endpoint that returns the exact frame makes them match:
+
+```
+GET /api/player/frame?path=<file path>&t=<seconds, e.g. 95.5>&w=<width px, default 320, max 640>
+→ 200 image/jpeg   (404 when the file isn't in the library; 422 when t is past the end)
+```
+
+- Use the existing `sprites._grab(path, at, scale)` (keyframe-first, so it's fast on HEVC) with
+  `scale=f'scale={w}:-2'`, encode as JPEG quality ~80.
+- Cache the result in the video's cache folder, e.g. `data/cache/{cache_id}/frames/{round(t*10)}_{w}.jpg`,
+  and send `Cache-Control: private, max-age=86400` — a video's chapter cards are requested every time
+  the player opens the chapter row.
+- Same auth as the rest of `/api/player` (login cookie); same path check as `/api/player/streams`
+  (`_file_row` – only files in the library).
+- Limit concurrent grabs (e.g. a semaphore of 2) so opening a row of 20 chapters doesn't start 20 ffmpegs.
+
+The TV app already requests these URLs; on servers without the endpoint it gets a 404 and keeps the
+preview tile, so nothing breaks before this is added.
+
+## 7. Letters for the Movies tab (optional, small)
+
+`/api/videos` returns `letters: [{letter, index}]` for Title / Cast / Filename sorts, which the TV uses
+for its #-Z jump bar. `/api/movies` doesn't, so the TV loads movies in pages of 500 and works the
+letters out itself. For large movie collections, add the same `letters` list to `movies.listing`
+when `sort == 'title'` (computed over the whole filtered, sorted list before paging, with
+`routes/videos._letter_of` on each movie's `display`). The TV uses the server's letters when present.
+
 ## Already fine (no change needed) – for reference
 
 - Sort by **Cast** in `/api/videos` (`sort_by=Cast`) works for libraries, groups and All Videos.

@@ -64,7 +64,7 @@ class LiveServerTest {
         val all = LibraryTree.visible(tree, tree.flatMap { allGroups(it) }.toSet())
         println("sidebar:\n" + all.joinToString("\n") { "  ".repeat(it.depth + 1) + it.label + if (it.isGroup) "/" else "" })
 
-        for (node in all.filter { it.name != HOME && it.name != CAST_BROWSER }) {
+        for (node in all.filter { it.name != HOME }) {
             val rows = client.home(node.name)
             val page = client.videos(node.name, VideoFilter(), limit = 3)
             val counts = client.availableFilters(node.name, VideoFilter())
@@ -114,6 +114,19 @@ class LiveServerTest {
             val was = client.video(v.path).isFavorite
             assertEquals(!was, client.toggleFavorite(v.path))
             assertEquals(was, client.toggleFavorite(v.path))           // back as it was
+        }
+        // letters for the jump bar, markers and preview tiles
+        val byTitle = client.videos(ALL_VIDEOS, VideoFilter(sortBy = SortOption.TITLE.value), limit = 2)
+        println("letters: ${byTitle.letters}")
+        assertTrue(byTitle.total == 0 || byTitle.letters.isNotEmpty())
+        byTitle.items.firstOrNull()?.let { v ->
+            val streams = client.streams(v.path)
+            val markers = client.markers(streams.videoId!!)
+            val tiles = client.spriteTiles(streams.sprite)
+            println("markers: ${markers.size}, preview tiles: ${tiles.size} (sprite ready: ${streams.sprite?.ready})")
+            tiles.firstOrNull()?.let { t ->
+                http.newCall(okhttp3.Request.Builder().url(t.image).build()).execute().use { assertEquals(200, it.code) }
+            }
         }
         for (sort in MovieSort.entries) client.movies(ALL_VIDEOS, VideoFilter(), sort, limit = 2)
         println("movie filters: ${client.movieFilters(ALL_VIDEOS, VideoFilter())}")

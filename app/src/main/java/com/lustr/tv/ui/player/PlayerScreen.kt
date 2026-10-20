@@ -4,20 +4,25 @@ import android.net.Uri
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -34,11 +39,16 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,17 +70,28 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
+import androidx.tv.material3.Card
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
+import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.compose.rememberAsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.size.Size as CoilSize
 import com.lustr.tv.AppContainer
+import com.lustr.tv.Load
 import com.lustr.tv.core.CaptionTrack
 import com.lustr.tv.core.LustrClient
 import com.lustr.tv.core.LustrException
+import com.lustr.tv.core.Marker
 import com.lustr.tv.core.PlayTracker
 import com.lustr.tv.core.Playback
 import com.lustr.tv.core.RemoteSeek
 import com.lustr.tv.core.ResumeMode
+import com.lustr.tv.core.SpriteInfo
+import com.lustr.tv.core.SpriteSheet
+import com.lustr.tv.core.SpriteTile
 import com.lustr.tv.core.StreamSource
 import com.lustr.tv.core.VideoZoom
 import com.lustr.tv.ui.browse.ChoiceRow
@@ -143,6 +164,9 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
     var speed by remember { mutableFloatStateOf(1f) }
     var tracks by remember { mutableStateOf(Tracks.EMPTY) }
     val seekBarFocus = remember { FocusRequester() }
+    var markers by remember { mutableStateOf<List<Marker>>(emptyList()) }
+    var tiles by remember { mutableStateOf<List<SpriteTile>>(emptyList()) }
+    var sprite by remember { mutableStateOf<SpriteInfo?>(null) }
 
     fun durationMs(): Long = player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: (durationSec * 1000).toLong()
 
@@ -175,6 +199,10 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
                 null
             }
             title = video?.displayTitle.orEmpty()
+            sprite = info.sprite
+            info.videoId?.let { id ->
+                (container.load { markers(id) } as? Load.Ready)?.let { markers = it.value }      // chapters
+            }
             sources = Playback.order(info.sources, settings.defaultQuality)
             captions = info.captions?.tracks.orEmpty()
             durationSec = info.duration
@@ -380,6 +408,22 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
                 onCaptions = { toggleCaptions(player, tracks) },
                 onMenu = { menuOpen = true },
                 modifier = Modifier.align(Alignment.BottomCenter),
+                above = {
+                    if (markers.isNotEmpty()) {
+                        Chapters(
+                            markers = markers,
+                            position = position,
+                            path = path,
+                            client = client,
+                            tiles = tiles,
+                            onOpen = {
+                                // preview tiles: fetched when the chapters are first opened (the sheet may still be in the making)
+                                if (tiles.isEmpty()) scope.launch { (container.load { spriteTiles(client.streams(path).sprite ?: sprite) } as? Load.Ready)?.let { tiles = it.value } }
+                            },
+                            onPick = { m -> player.seekTo((m.seconds * 1000).toLong()) },
+                        )
+                    }
+                },
             )
         } else if (seekTarget != null) {
             // seeking without the controls: just the bar and the time
@@ -452,6 +496,7 @@ private fun Controls(
     onCaptions: () -> Unit,
     onMenu: () -> Unit,
     modifier: Modifier = Modifier,
+    above: @Composable () -> Unit = {},
 ) {
     var barFocused by remember { mutableStateOf(false) }
     Column(
@@ -466,6 +511,7 @@ private fun Controls(
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Text(sourceLabel, color = LustrColors.textSecondary)
         }
+        above()
         // The progress bar: focusable, ◀ / ▶ on it seek (handled in the key interceptor)
         ProgressBar(
             position, duration, seeking,
@@ -581,6 +627,101 @@ private fun MenuHeading(text: String) {
         color = LustrColors.textSecondary,
         modifier = Modifier.padding(start = 12.dp, top = 14.dp, bottom = 4.dp),
     )
+}
+
+/**
+ * "▲ Chapters (n)" above the progress bar; ▲ from the bar focuses it and opens a row of chapter
+ * cards (starting at the current one). OK jumps there; ▼ goes back to the bar and closes the row.
+ */
+@Composable
+private fun Chapters(
+    markers: List<Marker>,
+    position: Long,
+    path: String,
+    client: LustrClient,
+    tiles: List<SpriteTile>,
+    onOpen: () -> Unit,
+    onPick: (Marker) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val current = markers.indexOfLast { it.seconds * 1000 <= position }.coerceAtLeast(0)
+    val currentFocus = remember { FocusRequester() }
+    if (!open) {
+        var focused by remember { mutableStateOf(false) }
+        Text(
+            "▲  Chapters (${markers.size})",
+            style = MaterialTheme.typography.labelLarge,
+            color = if (focused) Color.White else LustrColors.textSecondary,
+            modifier = Modifier
+                .onFocusChanged {
+                    focused = it.isFocused
+                    if (it.isFocused) {
+                        open = true
+                        onOpen()
+                    }
+                }
+                .focusable()
+                .padding(vertical = 4.dp),
+        )
+    } else {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(vertical = 10.dp),
+            modifier = Modifier.onFocusChanged { if (!it.hasFocus) open = false },
+        ) {
+            items(markers.size) { i ->
+                val m = markers[i]
+                ChapterCard(
+                    marker = m,
+                    tile = SpriteSheet.tileAt(tiles, m.seconds),
+                    frameUrl = client.frameUrl(path, m.seconds),
+                    current = i == current,
+                    onClick = { onPick(m) },
+                    modifier = if (i == current) Modifier.focusRequester(currentFocus) else Modifier,
+                )
+            }
+        }
+        LaunchedEffect(Unit) {
+            repeat(10) {
+                if (runCatching { currentFocus.requestFocus() }.isSuccess) return@LaunchedEffect
+                delay(25)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChapterCard(marker: Marker, tile: SpriteTile?, frameUrl: String, current: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.width(180.dp)) {
+        Card(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+            Box(Modifier.fillMaxSize().background(LustrColors.surfaceElevated)) {
+                // the nearest seek-bar preview first; the exact frame on top when the server can make it
+                tile?.let { SpriteTileImage(it, Modifier.fillMaxSize()) }
+                AsyncImage(model = frameUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                if (current) {
+                    Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(LustrColors.primaryLight))
+                }
+            }
+        }
+        Text(marker.label, style = MaterialTheme.typography.labelLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp))
+        Text(formatTime((marker.seconds * 1000).toLong()), style = MaterialTheme.typography.labelSmall, color = LustrColors.textSecondary)
+    }
+}
+
+/** One tile cut out of the seek-bar preview sheet (loaded at full size, so the tile's pixel box fits). */
+@Composable
+private fun SpriteTileImage(tile: SpriteTile, modifier: Modifier = Modifier) {
+    val request = ImageRequest.Builder(LocalPlatformContext.current).data(tile.image).size(CoilSize.ORIGINAL).build()
+    val painter = rememberAsyncImagePainter(request)
+    Canvas(modifier.clipToBounds()) {
+        val sheet = painter.intrinsicSize
+        if (sheet.isUnspecified || tile.w <= 0 || tile.h <= 0) return@Canvas
+        val scale = maxOf(size.width / tile.w, size.height / tile.h)
+        translate(-tile.x * scale, -tile.y * scale) {
+            with(painter) { draw(Size(sheet.width * scale, sheet.height * scale)) }
+        }
+    }
 }
 
 // ---- helpers --------------------------------------------------------------------------------

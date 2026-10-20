@@ -193,6 +193,31 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
         return info
     }
 
+    /** Chapters / markers of a video, in time order. */
+    suspend fun markers(videoId: String): List<Marker> {
+        val reply: MarkerList = get(url("api/player/markers") { addQueryParameter("video_id", videoId) })
+        if (!reply.success) throw LustrException.ServerError(reply.error ?: "Markers not available", 200)
+        return reply.markers
+    }
+
+    /** The preview tiles of a video ([SpriteInfo.vtt]), with each image as a full URL; empty when not made yet. */
+    suspend fun spriteTiles(sprite: SpriteInfo?): List<SpriteTile> {
+        val vtt = sprite?.takeIf { it.ready }?.vtt ?: return emptyList()
+        val vttUrl = baseUrl.resolve(vtt) ?: return emptyList()
+        val text = execute(Request.Builder().url(vttUrl).get().build())
+        return SpriteSheet.parse(text).map { it.copy(image = vttUrl.resolve(it.image)?.toString() ?: it.image) }
+    }
+
+    /**
+     * The frame at [seconds] as a JPEG, [width] px wide (docs/SERVER_CHANGES.md §6). Servers without
+     * it answer 404 and the TV falls back to the preview tiles.
+     */
+    fun frameUrl(path: String, seconds: Double, width: Int = 320): String = url("api/player/frame") {
+        addQueryParameter("path", path)
+        addQueryParameter("t", "%.1f".format(java.util.Locale.ROOT, seconds))
+        addQueryParameter("w", width.toString())
+    }.toString()
+
     /** Saves the resume point and Play History entry. Also counts as activity for the login session. */
     suspend fun reportProgress(report: ProgressReport) {
         post<JsonObject>(url("api/watch/progress"), json.encodeToString(ProgressReport.serializer(), report))

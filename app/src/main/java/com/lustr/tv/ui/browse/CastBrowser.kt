@@ -22,6 +22,7 @@ import androidx.tv.material3.Text
 import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
 import com.lustr.tv.core.CastBrowse
+import com.lustr.tv.core.CastCategoryFilter
 import com.lustr.tv.core.CastGenderFilter
 import com.lustr.tv.core.CastMember
 import com.lustr.tv.core.CastSort
@@ -46,7 +47,7 @@ class CastBrowserViewModel(private val container: AppContainer) : ViewModel() {
     }
 }
 
-/** The sidebar's Cast: performers with photos; OK opens their bio. */
+/** Home's Cast tab: performers with photos; OK opens their bio. */
 @Composable
 fun CastBrowserContent(container: AppContainer, onCast: (String) -> Unit) {
     val vm: CastBrowserViewModel = viewModel(key = "cast-browser") { CastBrowserViewModel(container) }
@@ -55,6 +56,7 @@ fun CastBrowserContent(container: AppContainer, onCast: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf(CastSort.MOST_VIDEOS) }
     var gender by remember { mutableStateOf(CastGenderFilter.ALL) }
+    var category by remember { mutableStateOf(CastCategoryFilter.ALL) }
     var favoritesOnly by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
 
@@ -63,7 +65,7 @@ fun CastBrowserContent(container: AppContainer, onCast: (String) -> Unit) {
         is Load.Ready -> Load.Ready(
             CastBrowse.filter(
                 c.value.map { m -> container.castFavorites[m.name]?.let { m.copy(isFavorite = it) } ?: m },
-                query, favoritesOnly, gender, sort,
+                query, favoritesOnly, gender, sort, category,
             ),
         )
         else -> c
@@ -78,6 +80,7 @@ fun CastBrowserContent(container: AppContainer, onCast: (String) -> Unit) {
             OutlinedButton(onClick = { searching = true }) { Text(if (query.isBlank()) "Search" else "Search: $query", maxLines = 1) }
             OutlinedButton(onClick = { sort = CastSort.entries.after(sort) }) { Text("Sort: ${sort.label}") }
             OutlinedButton(onClick = { gender = CastGenderFilter.entries.after(gender) }) { Text(gender.label) }
+            OutlinedButton(onClick = { category = CastCategoryFilter.entries.after(category) }) { Text(category.label) }
             OutlinedButton(onClick = { favoritesOnly = !favoritesOnly }) { Text(if (favoritesOnly) "★ Favorites only" else "☆ Everyone") }
             Spacer(Modifier.weight(1f))
             (shown as? Load.Ready)?.let { Text("${it.value.size} performers", color = LustrColors.textSecondary) }

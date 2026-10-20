@@ -209,6 +209,8 @@ data class VideoPage(
     val total: Int = 0,
     val page: Int = 1,
     val limit: Int = 50,
+    /** Where each letter starts in the whole sorted list (Title / Cast / Filename sorts; empty otherwise). */
+    val letters: List<LetterIndex> = emptyList(),
 )
 
 /** GET /api/home */
@@ -300,6 +302,8 @@ data class MovieList(
     val error: String? = null,
     val movies: List<Movie> = emptyList(),
     val total: Int = 0,
+    /** Only if the server sends them (docs/SERVER_CHANGES.md §7); otherwise worked out on the TV. */
+    val letters: List<LetterIndex> = emptyList(),
 )
 
 /** A full movie made of scenes / parts (videos). */
@@ -358,6 +362,8 @@ data class StreamInfo(
     /** Index into sources the web player would start with (browser-oriented). */
     @SerialName("start_source") val startSource: Int = 0,
     val captions: CaptionInfo? = null,
+    /** Seek-bar previews (chapter thumbnails come from them). */
+    val sprite: SpriteInfo? = null,
 )
 
 @Serializable

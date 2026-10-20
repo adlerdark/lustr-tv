@@ -1,7 +1,9 @@
 package com.lustr.tv.ui.browse
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,6 +34,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.lustr.tv.Load
 import com.lustr.tv.core.LibraryTree
+import com.lustr.tv.core.SEARCH
 import com.lustr.tv.core.SidebarNode
 import com.lustr.tv.core.SidebarState
 import com.lustr.tv.ui.theme.LustrColors
@@ -49,6 +53,7 @@ fun Sidebar(
     onRetry: () -> Unit,
     onLogOut: () -> Unit,
     onSettings: () -> Unit,
+    onSearch: () -> Unit,
     activeFocus: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
@@ -60,12 +65,15 @@ fun Sidebar(
             .padding(top = 20.dp, bottom = 20.dp),
     ) {
         LustrLogo(Modifier.padding(start = 24.dp, bottom = 8.dp))
-        Text(
-            "LIBRARIES",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = LustrColors.textSecondary,
-            modifier = Modifier.padding(start = 24.dp, top = 4.dp, bottom = 8.dp),
+        // Search the whole site; the results open as their own page
+        SidebarItem(
+            SidebarNode(SEARCH, isGroup = false, label = "⌕  Search"),
+            active = state.active == SEARCH,
+            expanded = false,
+            onClick = onSearch,
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+                .then(if (state.active == SEARCH) Modifier.focusRequester(activeFocus) else Modifier),
         )
         when (tree) {
             Load.Loading -> Text("Loading…", color = LustrColors.textSecondary, modifier = Modifier.padding(start = 24.dp))
@@ -123,5 +131,24 @@ private fun SidebarItem(node: SidebarNode, active: Boolean, expanded: Boolean, o
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+/**
+ * The sidebar when it's tucked away: a thin strip on the left edge. ◀ from the content lands on it,
+ * which opens the sidebar again ([onReached]).
+ */
+@Composable
+fun SidebarRail(onReached: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .width(18.dp)
+            .fillMaxHeight()
+            .background(LustrColors.surfaceRaised)
+            .onFocusChanged { if (it.isFocused) onReached() }
+            .focusable(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("›", color = LustrColors.textSecondary, fontSize = 16.sp)
     }
 }

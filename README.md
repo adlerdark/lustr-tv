@@ -25,27 +25,32 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
   limit for TV sessions, the inactivity timeout, or **Log out**. The server address is remembered;
   **Search network** finds the server by itself.
 
-- **Sidebar** (left): the lustr logo, **Home**, **All Videos**, then your libraries and groups in the
-  same order as the web app (hidden libraries and the display filter are respected). Groups start
-  collapsed:
+- **Sidebar** (left): the lustr logo, **Search**, **Home**, **All Videos**, then your libraries and
+  groups in the same order as the web app (hidden libraries and the display filter are respected).
+  It tucks itself away into a thin strip when you move into the content, and comes back when you
+  press ◀ from the left edge (or Back). Groups start collapsed:
   - a collapsed group: OK expands it **and** opens it;
   - an expanded group that isn't open: OK opens it;
   - the open, expanded group: OK collapses it (it stays open). So a double press always ends collapsed.
   - **Back** from anywhere on the right jumps to the sidebar.
-- **Home** shows the same rows as lustr's web Home (Continue Watching, Recently Added, Because you
-  watched…, Favorites, …). It refreshes whenever you come back to it.
+- **Search** (top of the sidebar) searches everything: matching performers and movies in rows, then
+  every matching video (lustr's search syntax works too, e.g. `cast:jane*`).
+- **Home** has two tabs: **Recommended** – the same rows as lustr's web Home (Continue Watching,
+  Recently Added, Because you watched…, Favorites, …), refreshed whenever you come back – and
+  **Cast** (below).
 - Every library / group has the web app's tabs:
   - **Recommended** – that library's Home rows.
-  - **Library** – every video, paged as you scroll. **Search** (with lustr's search syntax, e.g.
+  - **Library** – every video, paged as you scroll; sorted by Title, Cast or File name it has a
+    **#–Z bar** on the right to jump to a letter. **Search** (with lustr's search syntax, e.g.
     `cast:jane*`), **Sort** (pick the same sort again to reverse it), and **Filters**: favorites only,
     length, and tags / sites with counts – press once for ✓ (must have), again for ✕ (must not have),
     again to clear.
   - **Collections** – hand-picked and smart collections; open one to see its videos.
   - **Movies** – posters (upright, 2:3) with Search, Sort (title, year, most scenes, recently added,
-    favorites first) and Filters (favorites, tags and sites with counts); open one for its details and
-    its scenes in order (landscape).
-- **Cast** (sidebar): everyone with their photo – Search (names and aliases), Sort (most videos /
-  name), Women / Men / Trans, Favorites only. A performer's page shows their photo, details, aliases,
+    favorites first), Filters (favorites, tags and sites with counts) and, sorted by title, the #–Z
+    bar; open one for its details and its scenes in order (landscape).
+- **Cast** (Home's second tab): everyone with their photo – Search (names and aliases), Sort (most
+  videos / name), Women / Men / Trans, Pro / Amateur / Celeb, Favorites only. A performer's page shows their photo, details, aliases,
   appearance, the StashDB / ThePornDB profile when linked, their libraries and all their videos;
   ★ marks them as a favorite (the only change you can make there).
 - **Hold OK on any video** (rows, grids, collections, movies, cast pages) for a menu: Play, add to /
@@ -58,6 +63,9 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
   leave, so Continue Watching and Play History stay in step with the web app. On the remote:
   - **◀ / ▶** (controls hidden, or on the progress bar): jump back / forward 10 s; **hold** to seek
     faster and faster – it jumps when you let go. ⏪ / ⏩ do the same. **Play/Pause** any time.
+  - **Chapters**: with the controls showing, **▲ from the progress bar** opens the video's chapters /
+    markers as cards with a picture; OK jumps there. (Pictures are the nearest seek-bar preview; the
+    exact frame once the server has `docs/SERVER_CHANGES.md` §6.)
   - **OK / ▲ / ▼** show the controls: progress bar, Play/Pause, −/+, **CC**, **⚙ Settings**
     (quality – direct play or a transcode at original / 1080p / 720p / … –, captions, audio track,
     speed, picture zoom). **Back** hides them, Back again leaves the player.

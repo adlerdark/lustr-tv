@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +27,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,10 +41,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Button
 import androidx.tv.material3.Card
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.lustr.tv.core.HomeRow
+import com.lustr.tv.core.LetterIndex
+import com.lustr.tv.core.Letters
 import com.lustr.tv.core.PagedState
 import com.lustr.tv.core.Video
 import com.lustr.tv.ui.theme.LustrColors
@@ -182,7 +189,9 @@ fun VideoRows(rows: List<HomeRow>, imageUrl: ImageUrl, onPlay: (Video) -> Unit) 
 }
 
 /**
- * A grid that asks for the next page as it nears the end ([PagedState] + Pager.loadMore).
+ * A grid that asks for the next page as it nears the end ([PagedState] + Pager.loadMore), and for
+ * the previous one near its start after a jump ([onLoadPrevious]). With [letters] it shows the
+ * #-Z bar on the right: [onJump] (Pager.jumpTo) loads the letter's page, then the grid scrolls there.
  * [header] scrolls with the grid (e.g. a movie's details).
  */
 @Composable
@@ -194,6 +203,9 @@ fun <T> PagedGrid(
     emptyText: String,
     modifier: Modifier = Modifier,
     minCell: Dp = 210.dp,
+    onLoadPrevious: () -> Unit = {},
+    letters: List<LetterIndex> = emptyList(),
+    onJump: (Int) -> Unit = {},
     header: (LazyGridScope.() -> Unit)? = null,
     cell: @Composable (T) -> Unit,
 ) {
@@ -205,29 +217,77 @@ fun <T> PagedGrid(
         }
     }
     LaunchedEffect(nearEnd, state.items.size) { if (nearEnd) onLoadMore() }
+    val nearStart by remember { derivedStateOf { grid.firstVisibleItemIndex < 6 } }
+    LaunchedEffect(nearStart, state.offset) { if (nearStart && state.hasPrevious) onLoadPrevious() }
 
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minCell),
-        state = grid,
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 24.dp, end = EDGE, top = 16.dp, bottom = EDGE),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        header?.invoke(this)
-        items(state.items.size, key = { key(state.items[it]) }) { cell(state.items[it]) }
-        val message = when {
-            state.error != null -> "Couldn't load: ${state.error}"
-            state.loading -> "Loading…"
-            state.endReached && state.items.isEmpty() -> emptyText
-            else -> null
+    // a letter was picked: once its page is loaded, scroll to it
+    var jumpTarget by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(jumpTarget, state.offset, state.items.size) {
+        val target = jumpTarget ?: return@LaunchedEffect
+        if (target >= state.offset && target < state.offset + state.items.size) {
+            grid.scrollToItem(target - state.offset)
+            jumpTarget = null
         }
-        if (message != null) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(message, color = LustrColors.textSecondary)
-                    if (state.error != null) Button(onClick = onRetry, modifier = Modifier.padding(top = 12.dp)) { Text("Try again") }
+    }
+
+    Row(modifier.fillMaxSize()) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minCell),
+            state = grid,
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            contentPadding = PaddingValues(start = 24.dp, end = if (letters.isEmpty()) EDGE else 12.dp, top = 16.dp, bottom = EDGE),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            header?.invoke(this)
+            items(state.items.size, key = { key(state.items[it]) }) { cell(state.items[it]) }
+            val message = when {
+                state.error != null -> "Couldn't load: ${state.error}"
+                state.loading -> "Loading…"
+                state.endReached && state.items.isEmpty() -> emptyText
+                else -> null
+            }
+            if (message != null) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Column(Modifier.padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(message, color = LustrColors.textSecondary)
+                        if (state.error != null) Button(onClick = onRetry, modifier = Modifier.padding(top = 12.dp)) { Text("Try again") }
+                    }
                 }
+            }
+        }
+        if (letters.isNotEmpty()) {
+            LetterBar(letters, Modifier.padding(end = 16.dp, top = 8.dp, bottom = 16.dp)) { index ->
+                jumpTarget = index
+                onJump(index)
+            }
+        }
+    }
+}
+
+/** #, A-Z down the right edge; letters with nothing to jump to are dimmed and skipped by the remote. */
+@Composable
+fun LetterBar(letters: List<LetterIndex>, modifier: Modifier = Modifier, onJump: (Int) -> Unit) {
+    val at = letters.associate { it.letter to it.index }
+    Column(modifier.fillMaxHeight(), verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally) {
+        for (letter in Letters.ALL) {
+            val index = at[letter]
+            Surface(
+                onClick = { index?.let(onJump) },
+                enabled = index != null,
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp)),
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.3f),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = Color.Transparent,
+                    contentColor = LustrColors.textPrimary,
+                    focusedContainerColor = LustrColors.primaryBase,
+                    focusedContentColor = Color.White,
+                    disabledContainerColor = Color.Transparent,
+                    disabledContentColor = LustrColors.surfaceHigh,
+                ),
+                modifier = Modifier.width(26.dp),
+            ) {
+                Text(letter, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center))
             }
         }
     }

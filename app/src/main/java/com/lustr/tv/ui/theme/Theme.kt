@@ -18,6 +18,7 @@ object LustrColors {
     val surfaceBase = Color(0xFF111827)      // page background
     val surfaceRaised = Color(0xFF1F2937)    // sidebar, panels, cards
     val surfaceElevated = Color(0xFF374151)  // buttons at rest
+    val surfaceHigh = Color(0xFF4B5563)      // dimmed / disabled
     val border = Color(0xFF374151)
     val textBrightest = Color(0xFFF3F4F6)
     val textBrighter = Color(0xFFE5E7EB)     // headings
