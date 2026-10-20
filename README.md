@@ -137,6 +137,23 @@ After the first time, the app is on the Shield's home screen (in the apps row) a
 > screens), so Android installs it as a new app. Uninstall the old "lustr" one: Shield
 > **Settings → Apps → lustr → Uninstall** (in the emulator: long-press its icon → Uninstall).
 
+## The smooth (release) build
+
+▶ Run normally makes a **debug** build, which works but scrolls noticeably less smoothly. For
+everyday use, switch to the **release** build (it's signed with Android Studio's own key, so there's
+nothing to set up, and it installs over the debug one):
+
+1. Open **Build Variants**: the tab on the left edge of Android Studio (or **View → Tool Windows →
+   Build Variants**).
+2. In the row for **:app**, change `debug` to **`release`**.
+3. Then either:
+   - press **▶ Run** with the Shield selected (it installs straight onto the Shield), or
+   - **Build → Build App Bundle(s) / APK(s) → Build APK(s)** for a file to install yourself:
+     `app/build/outputs/apk/release/app-release.apk`, e.g.
+     `adb install -r app/build/outputs/apk/release/app-release.apk`.
+
+Switch back to `debug` only when you want to debug.
+
 ## Running the tests (optional)
 
 The `core` tests check the API code against responses recorded from a real lustr server. In Android

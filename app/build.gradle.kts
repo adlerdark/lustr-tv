@@ -17,8 +17,13 @@ android {
     }
 
     buildTypes {
+        // The build to use on the TV: optimised, so menus scroll smoothly (debug builds of Compose
+        // apps are much slower). Signed with Android Studio's debug key, so it builds without a
+        // keystore and installs over a debug build (same key). Fine for a personal app; for the
+        // Play Store you'd sign with your own key instead.
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
