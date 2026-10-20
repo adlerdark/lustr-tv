@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Button
@@ -51,7 +52,10 @@ val EDGE = 40.dp
 /** Turns the server's relative links (thumbnails, covers) into full URLs. */
 typealias ImageUrl = (String) -> String
 
-/** A 16:9 picture card with a title (and a small line under it). Grows when focused (Card's default). */
+/**
+ * A picture card (16:9, or [aspect], e.g. 2:3 for posters) with a title and a small line under it.
+ * Grows when focused (Card's default); [onLongClick] = holding OK.
+ */
 @Composable
 fun PictureCard(
     title: String,
@@ -60,20 +64,22 @@ fun PictureCard(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     imageFit: ContentScale = ContentScale.Crop,
+    aspect: Float = 16f / 9f,
+    onLongClick: (() -> Unit)? = null,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     Column(modifier) {
-        Card(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+        Card(onClick = onClick, onLongClick = onLongClick, modifier = Modifier.fillMaxWidth().aspectRatio(aspect)) {
             Box(Modifier.fillMaxSize().background(LustrColors.surfaceElevated)) {
+                // the initial shows until the picture loads, and stays when there is none (e.g. a 404)
+                Text(
+                    title.take(1).uppercase(),
+                    fontSize = 40.sp,
+                    color = LustrColors.textSecondary,
+                    modifier = Modifier.align(Alignment.Center),
+                )
                 if (imageUrl != null) {
                     AsyncImage(model = imageUrl, contentDescription = null, contentScale = imageFit, modifier = Modifier.fillMaxSize())
-                } else {
-                    Text(
-                        title.take(1).uppercase(),
-                        fontSize = 40.sp,
-                        color = LustrColors.textSecondary,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
                 }
                 overlay()
             }
@@ -100,17 +106,22 @@ fun PictureCard(
     }
 }
 
-/** A video: thumbnail, length, resume bar, title, cast / site. [label] replaces the title (e.g. "Scene 2"). */
+/**
+ * A video: thumbnail, length, resume bar, title, cast / site. [label] replaces the title (e.g. "Scene 2").
+ * Holding OK opens the video menu (favorite, video info, file info; see VideoActions).
+ */
 @Composable
 fun VideoCard(video: Video, imageUrl: ImageUrl, onClick: () -> Unit, modifier: Modifier = Modifier, label: String? = null) {
+    val actions = LocalVideoActions.current
     PictureCard(
         title = label ?: video.displayTitle,
         imageUrl = video.thumb?.let(imageUrl),
         onClick = onClick,
         modifier = modifier,
         subtitle = if (label != null) video.displayTitle else (video.cast.take(2) + video.site.take(1)).joinToString(" · "),
+        onLongClick = actions?.let { a -> { a.openMenu(video) } },
     ) {
-        if (video.isFavorite) {
+        if (actions?.isFavorite(video) ?: video.isFavorite) {
             Text("★", color = LustrColors.favorite, fontSize = 18.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
         }
         video.length?.let { length ->
@@ -182,6 +193,7 @@ fun <T> PagedGrid(
     key: (T) -> Any,
     emptyText: String,
     modifier: Modifier = Modifier,
+    minCell: Dp = 210.dp,
     header: (LazyGridScope.() -> Unit)? = null,
     cell: @Composable (T) -> Unit,
 ) {
@@ -195,7 +207,7 @@ fun <T> PagedGrid(
     LaunchedEffect(nearEnd, state.items.size) { if (nearEnd) onLoadMore() }
 
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(210.dp),
+        columns = GridCells.Adaptive(minCell),
         state = grid,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 24.dp, end = EDGE, top = 16.dp, bottom = EDGE),
@@ -217,6 +229,30 @@ fun <T> PagedGrid(
                     if (state.error != null) Button(onClick = onRetry, modifier = Modifier.padding(top = 12.dp)) { Text("Try again") }
                 }
             }
+        }
+    }
+}
+
+/** A performer: portrait photo (or their initial), name, how many videos, ★ when a favorite. */
+@Composable
+fun PersonCard(
+    name: String,
+    photoUrl: String?,
+    favorite: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+) {
+    PictureCard(
+        title = name,
+        imageUrl = photoUrl,
+        onClick = onClick,
+        modifier = modifier,
+        subtitle = subtitle,
+        aspect = 3f / 4f,
+    ) {
+        if (favorite) {
+            Text("★", color = LustrColors.favorite, fontSize = 18.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
         }
     }
 }

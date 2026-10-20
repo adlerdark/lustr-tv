@@ -14,12 +14,13 @@ enum class LibraryTab(val label: String) {
     MOVIES("Movies"),
 }
 
-/** One line of the sidebar. [depth] = how far it's indented (0 = top level). */
+/** One line of the sidebar. [depth] = how far it's indented (0 = top level). [label] is what's shown. */
 data class SidebarNode(
     val name: String,
     val isGroup: Boolean,
     val depth: Int = 0,
     val children: List<SidebarNode> = emptyList(),
+    val label: String = name,
 )
 
 /** Builds the sidebar the way the web app does (index.html: visibleLibraries). */
@@ -60,7 +61,7 @@ object LibraryTree {
         // in the order the server lists the groups.
         val order = init.libraryOrder + groups.filter { (name, g) -> g.parent.isNullOrEmpty() && name !in init.libraryOrder }.keys
 
-        val out = mutableListOf(SidebarNode(HOME, isGroup = false))
+        val out = mutableListOf(SidebarNode(HOME, isGroup = false), SidebarNode(CAST_BROWSER, isGroup = false, label = "Cast"))
         if (ALL_VIDEOS !in hidden) out += SidebarNode(ALL_VIDEOS, isGroup = false)
         for (item in order) {
             val g = groups[item]

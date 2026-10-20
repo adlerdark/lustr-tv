@@ -2,6 +2,7 @@ package com.lustr.tv
 
 import android.content.Context
 import android.view.KeyEvent
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.core.content.edit
 import com.lustr.tv.core.CookieStorage
 import com.lustr.tv.core.LustrClient
@@ -65,6 +66,10 @@ class AppContainer(context: Context) {
 
     /** Bumped when something changes what every list shows (e.g. the orientation filter): lists reload. */
     val dataVersion = MutableStateFlow(0)
+
+    /** Favorites changed on this TV (video path / performer name -> now favorite), so every card shows it at once. */
+    val videoFavorites = mutableStateMapOf<String, Boolean>()
+    val castFavorites = mutableStateMapOf<String, Boolean>()
 
     /** Every failed request passes through here, so a 401 anywhere leads back to login. */
     fun onError(e: IOException) {

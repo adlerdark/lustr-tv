@@ -41,7 +41,17 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
     length, and tags / sites with counts – press once for ✓ (must have), again for ✕ (must not have),
     again to clear.
   - **Collections** – hand-picked and smart collections; open one to see its videos.
-  - **Movies** – movies built from scenes; open one for its details and scenes in order.
+  - **Movies** – posters (upright, 2:3) with Search, Sort (title, year, most scenes, recently added,
+    favorites first) and Filters (favorites, tags and sites with counts); open one for its details and
+    its scenes in order (landscape).
+- **Cast** (sidebar): everyone with their photo – Search (names and aliases), Sort (most videos /
+  name), Women / Men / Trans, Favorites only. A performer's page shows their photo, details, aliases,
+  appearance, the StashDB / ThePornDB profile when linked, their libraries and all their videos;
+  ★ marks them as a favorite (the only change you can make there).
+- **Hold OK on any video** (rows, grids, collections, movies, cast pages) for a menu: Play, add to /
+  remove from favorites, **Video info** (the cast with photos – each opens their page – and all the
+  metadata tags, read-only) and **File info** (like the web app's: title, date added, library, movie,
+  cast, and each file's name, path, cache ID, resolution, codec, container, size, length, bitrate).
 - **Player** plays the original file directly (the Shield decodes MKV / HEVC / most formats itself, so
   the server does no work). If a file won't play, it switches to the server's HLS transcode
   automatically. It resumes where you left off, and saves progress every 10 seconds and when you
@@ -136,8 +146,7 @@ LUSTR_TEST_URL=192.168.1.20:8008 LUSTR_TEST_USER=you LUSTR_TEST_PASSWORD='...' .
 
 ## Ideas for next steps
 
-- Next session: movie posters + movie filters, long-press menu (favorite, video info, file info),
-  cast browser and cast bio pages.
+- A "Surround sound in transcodes" setting (lustr 0.8.1's `audio=surround`) and a max bitrate.
 - Playlists / Watchlist (`/api/playlists`), play the next scene / collection video automatically.
 - Follow the theme chosen in lustr's settings (the app uses lustr's default dark theme).
 - Seek-bar previews from the server's sprite sheets (`sprite.vtt` in `/api/player/streams`).

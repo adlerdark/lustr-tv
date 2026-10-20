@@ -16,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -29,7 +28,10 @@ import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
 import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
+import com.lustr.tv.core.MovieSort
 import com.lustr.tv.core.PagedState
+import com.lustr.tv.core.VideoFilter
+import com.lustr.tv.core.after
 import com.lustr.tv.core.SortOption
 import com.lustr.tv.core.Video
 import com.lustr.tv.ui.components.CenteredMessage
@@ -188,10 +190,13 @@ fun CollectionsTab(container: AppContainer, library: String, imageUrl: ImageUrl,
 @Composable
 fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPlay: (Video) -> Unit) {
     val vm: MoviesViewModel = viewModel(key = "movies:$library") { MoviesViewModel(container, library) }
-    val query by vm.query.collectAsStateWithLifecycle()
+    val filter by vm.filter.collectAsStateWithLifecycle()
+    val sort by vm.sort.collectAsStateWithLifecycle()
+    val counts by vm.counts.collectAsStateWithLifecycle()
     val movies by vm.movies.state.collectAsStateWithLifecycle()
     val open by vm.open.collectAsStateWithLifecycle()
-    var searching by remember { mutableStateOf(false) }
+    var dialog by remember { mutableStateOf<String?>(null) }    // "search" / "filters"
+    val filtered = filter.activeCount > 0 || filter.query.isNotBlank()
 
     when (val o = open) {
         null -> Column {
@@ -200,26 +205,38 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedButton(onClick = { searching = true }) { Text(if (query.isBlank()) "Search movies" else "Search: $query", maxLines = 1) }
-                if (query.isNotBlank()) OutlinedButton(onClick = { vm.search("") }) { Text("Clear") }
+                OutlinedButton(onClick = { dialog = "search" }, modifier = Modifier.widthIn(max = 240.dp)) {
+                    Text(if (filter.query.isBlank()) "Search" else "Search: ${filter.query}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                OutlinedButton(onClick = { vm.setSort(MovieSort.entries.after(sort)) }) { Text("Sort: ${sort.label}") }
+                OutlinedButton(onClick = { vm.loadCounts(); dialog = "filters" }) {
+                    Text(if (filter.activeCount > 0) "Filters (${filter.activeCount})" else "Filters")
+                }
+                if (filtered) OutlinedButton(onClick = { vm.setFilter(VideoFilter()) }) { Text("Clear") }
                 Spacer(Modifier.weight(1f))
                 if (movies.total >= 0) Text("${movies.total} movies", color = LustrColors.textSecondary)
             }
+            // posters stand upright (2:3); a movie without a cover shows a scene, cropped
             PagedGrid(
                 state = movies,
                 onLoadMore = vm.movies::loadMore,
                 onRetry = vm.movies::retry,
                 key = { it.id },
-                emptyText = if (query.isNotBlank()) "No movies match." else "No movies here. lustr builds them from scenes (web app: Movies tab).",
+                emptyText = if (filtered) "No movies match." else "No movies here. lustr builds them from scenes (web app: Movies tab).",
+                minCell = 150.dp,
             ) { m ->
                 PictureCard(
                     title = m.displayTitle,
                     imageUrl = m.cover?.let(imageUrl),
                     onClick = { vm.open(m) },
-                    imageFit = if (m.hasCover) ContentScale.Fit else ContentScale.Crop,
+                    aspect = 2f / 3f,
                     subtitle = listOfNotNull(m.year?.takeIf { it.isNotBlank() }, "${m.count} scene${if (m.count == 1) "" else "s"}")
                         .joinToString(" · "),
-                )
+                ) {
+                    if (m.favorite) {
+                        Text("★", color = LustrColors.favorite, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+                    }
+                }
             }
         }
         else -> {
@@ -262,13 +279,20 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
         }
     }
 
-    if (searching) {
-        SearchDialog(
+    when (dialog) {
+        "search" -> SearchDialog(
             title = "Search movies",
-            initial = query,
-            hint = "Part of a movie title",
-            onSearch = { vm.search(it); searching = false },
-            onDismiss = { searching = false },
+            initial = filter.query,
+            hint = "Part of a movie title or studio",
+            onSearch = { vm.setFilter(filter.copy(query = it)); dialog = null },
+            onDismiss = { dialog = null },
+        )
+        "filters" -> FilterDialog(
+            filter = filter,
+            counts = counts,
+            onChange = vm::setFilter,
+            onDismiss = { dialog = null },
+            showLength = false,
         )
     }
 }

@@ -10,6 +10,7 @@ import com.lustr.tv.core.LibraryTab
 import com.lustr.tv.core.LibraryTree
 import com.lustr.tv.core.Movie
 import com.lustr.tv.core.MovieDetail
+import com.lustr.tv.core.MovieSort
 import com.lustr.tv.core.Pager
 import com.lustr.tv.core.SidebarNode
 import com.lustr.tv.core.SidebarState
@@ -161,12 +162,21 @@ class CollectionsViewModel(private val container: AppContainer, private val libr
 
 /** The Movies tab: movies of a library / group, or one opened movie with its scenes. */
 class MoviesViewModel(private val container: AppContainer, private val library: String) : ViewModel() {
-    private val _query = MutableStateFlow("")
-    val query: StateFlow<String> = _query
+    /** Search, favorites, tags and sites (a movie has the tags of its scenes); lengths don't apply. */
+    private val _filter = MutableStateFlow(VideoFilter())
+    val filter: StateFlow<VideoFilter> = _filter
+
+    private val _sort = MutableStateFlow(MovieSort.TITLE)
+    val sort: StateFlow<MovieSort> = _sort
 
     val movies = Pager<Movie>(viewModelScope, pageSize = 60, onError = container::onError) { page, limit ->
-        container.client.movies(library, _query.value, page, limit).let { it.movies to it.total }
+        container.client.movies(library, _filter.value, _sort.value, page, limit).let { it.movies to it.total }
     }
+
+    /** Tag / site counts for the filter panel (null until it's opened). */
+    private val _counts = MutableStateFlow<FilterCounts?>(null)
+    val counts: StateFlow<FilterCounts?> = _counts
+    private var countsJob: Job? = null
 
     private val _open = MutableStateFlow<Load<MovieDetail>?>(null)
     val open: StateFlow<Load<MovieDetail>?> = _open
@@ -176,10 +186,25 @@ class MoviesViewModel(private val container: AppContainer, private val library: 
         reloadOnDataChange(container) { movies.reset() }
     }
 
-    fun search(q: String) {
-        if (q == _query.value) return
-        _query.value = q
+    fun setFilter(f: VideoFilter) {
+        if (f == _filter.value) return
+        _filter.value = f
         movies.reset()
+        if (_counts.value != null || countsJob != null) loadCounts()
+    }
+
+    fun setSort(s: MovieSort) {
+        if (s == _sort.value) return
+        _sort.value = s
+        movies.reset()
+    }
+
+    fun loadCounts() {
+        countsJob?.cancel()
+        countsJob = viewModelScope.launch {
+            val r = container.load { movieFilters(library, _filter.value) }
+            if (r is Load.Ready) _counts.value = r.value
+        }
     }
 
     fun open(m: Movie) {

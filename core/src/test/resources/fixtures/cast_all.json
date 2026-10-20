@@ -1,0 +1,16 @@
+{
+ "cast": [
+  {
+   "name": "Jane Doe",
+   "count": 2,
+   "is_favorite": true,
+   "has_photo": true,
+   "photo_source": "manual",
+   "ext_linked": false,
+   "gender": "female",
+   "category": "pro",
+   "attributes": {},
+   "aliases": []
+  }
+ ]
+}

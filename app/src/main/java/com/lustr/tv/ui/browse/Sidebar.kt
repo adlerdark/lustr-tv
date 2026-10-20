@@ -116,7 +116,7 @@ private fun SidebarItem(node: SidebarNode, active: Boolean, expanded: Boolean, o
                 Text(if (expanded) "▾" else "▸", fontSize = 14.sp, modifier = Modifier.width(18.dp))
             }
             Text(
-                node.name,
+                node.label,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (node.isGroup) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1,

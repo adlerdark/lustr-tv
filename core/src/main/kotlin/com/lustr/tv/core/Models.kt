@@ -36,6 +36,9 @@ data class Pairing(
 )
 
 @Serializable
+internal data class PathBody(val path: String)
+
+@Serializable
 internal data class PairStartBody(@SerialName("device_name") val deviceName: String)
 
 @Serializable
@@ -83,10 +86,42 @@ data class Video(
     val cast: List<String> = emptyList(),
     val site: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
+    // the other list fields (Video info shows them, read-only)
+    val ethnicity: List<String> = emptyList(),
+    val nationality: List<String> = emptyList(),
+    val hair: List<String> = emptyList(),
+    val body: List<String> = emptyList(),
+    val tits: List<String> = emptyList(),
+    val ass: List<String> = emptyList(),
+    val face: List<String> = emptyList(),
+    val cock: List<String> = emptyList(),
+    val outfit: List<String> = emptyList(),
+    val theme: List<String> = emptyList(),
+    val feature: List<String> = emptyList(),
+    val cumshot: List<String> = emptyList(),
+    val participants: List<String> = emptyList(),
+    val orientation: List<String> = emptyList(),
+    val rating: String? = null,
+    @SerialName("date_added") val dateAdded: String? = null,
+    @SerialName("total_bitrate") val totalBitrate: String? = null,
+    @SerialName("file_size") val fileSize: String? = null,
+    /** The movie this scene belongs to ("" when none). */
+    val movie: String? = null,
+    /** Every file of this video, when there is more than one (/api/video only). */
+    val versions: List<FileVersion> = emptyList(),
     /** Resume point in seconds (only present when there is one). */
     @SerialName("watch_progress") val watchProgress: Double? = null,
     @SerialName("watch_duration") val watchDuration: Double? = null,
 ) {
+    /** The metadata fields in the web app's order, without empty ones (cast is shown on its own). */
+    val metadata: List<Pair<String, List<String>>>
+        get() = listOf(
+            "Site" to site, "Tags" to tags, "Ethnicity" to ethnicity, "Nationality" to nationality,
+            "Hair" to hair, "Body" to body, "Tits" to tits, "Ass" to ass, "Face" to face, "Cock" to cock,
+            "Outfit" to outfit, "Theme" to theme, "Feature" to feature, "Cumshot" to cumshot,
+            "Participants" to participants, "Orientation" to orientation,
+        ).filter { it.second.isNotEmpty() }
+
     val displayTitle: String
         get() = title?.takeIf { it.isNotBlank() } ?: filename.substringBeforeLast('.').ifBlank { path }
 
@@ -101,6 +136,71 @@ data class Video(
             return (at / total).toFloat().coerceIn(0f, 1f)
         }
 }
+
+/** One file of a video (File info). */
+@Serializable
+data class FileVersion(
+    val path: String,
+    val filename: String = "",
+    val resolution: String? = null,
+    val codec: String? = null,
+    val extension: String? = null,
+    val length: String? = null,
+    @SerialName("total_bitrate") val totalBitrate: String? = null,
+    @SerialName("file_size") val fileSize: String? = null,
+    @SerialName("cache_id") val cacheId: String? = null,
+    @SerialName("is_preferred") val isPreferred: Int = 0,
+)
+
+/** GET /api/cast/all */
+@Serializable
+data class CastList(val cast: List<CastMember> = emptyList())
+
+@Serializable
+data class CastMember(
+    val name: String,
+    /** Videos with this performer. */
+    val count: Int = 0,
+    @SerialName("is_favorite") val isFavorite: Boolean = false,
+    @SerialName("has_photo") val hasPhoto: Boolean = false,
+    /** female, male, trans_female, trans_male */
+    val gender: String? = null,
+    /** pro, amateur, celeb */
+    val category: String? = null,
+    val aliases: List<String> = emptyList(),
+)
+
+/** GET /api/cast/{name}/bio */
+@Serializable
+data class CastBio(
+    val name: String,
+    val aliases: List<String> = emptyList(),
+    @SerialName("is_favorite") val isFavorite: Boolean = false,
+    @SerialName("has_photo") val hasPhoto: Boolean = false,
+    val gender: String? = null,
+    val category: String? = null,
+    /** Their videos. */
+    @SerialName("exact_matches") val videos: List<Video> = emptyList(),
+    /** library -> how many of their videos are in it */
+    @SerialName("library_distribution") val libraryDistribution: Map<String, Int> = emptyMap(),
+    /** hair -> [Blonde], ethnicity -> [...], ... */
+    val appearance: Map<String, List<String>> = emptyMap(),
+    val stats: CastStats = CastStats(),
+)
+
+@Serializable
+data class CastStats(
+    @SerialName("total_videos") val totalVideos: Int = 0,
+    val libraries: Int = 0,
+)
+
+/** GET /api/extdb/cast?name= : the stored StashDB / ThePornDB profile, when the performer is linked. */
+@Serializable
+data class ExtCastLink(
+    val success: Boolean = false,
+    val linked: Boolean = false,
+    val link: JsonObject? = null,
+)
 
 /** GET /api/videos */
 @Serializable

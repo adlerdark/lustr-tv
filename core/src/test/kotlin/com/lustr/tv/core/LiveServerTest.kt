@@ -62,9 +62,9 @@ class LiveServerTest {
 
         val tree = LibraryTree.build(client.init())
         val all = LibraryTree.visible(tree, tree.flatMap { allGroups(it) }.toSet())
-        println("sidebar:\n" + all.joinToString("\n") { "  ".repeat(it.depth + 1) + it.name + if (it.isGroup) "/" else "" })
+        println("sidebar:\n" + all.joinToString("\n") { "  ".repeat(it.depth + 1) + it.label + if (it.isGroup) "/" else "" })
 
-        for (node in all.filter { it.name != HOME }) {
+        for (node in all.filter { it.name != HOME && it.name != CAST_BROWSER }) {
             val rows = client.home(node.name)
             val page = client.videos(node.name, VideoFilter(), limit = 3)
             val counts = client.availableFilters(node.name, VideoFilter())
@@ -96,6 +96,27 @@ class LiveServerTest {
         println("display filter: ${filter.types} of ${filter.displayTypes}")
         assertTrue(filter.displayTypes.isNotEmpty())
         client.setDisplayFilter(filter.types)                // unchanged, just proves the call works
+
+        // cast, video info, favorites, movie filters
+        val cast = client.cast()
+        println("cast: ${cast.size}, first ${cast.firstOrNull()?.name}")
+        cast.firstOrNull()?.let { c ->
+            val bio = client.castBio(c.name)
+            println("bio ${bio.name}: ${bio.videos.size} videos, appearance ${bio.appearance.keys}, profile ${client.castProfile(c.name).size} rows")
+            if (c.hasPhoto) {
+                http.newCall(okhttp3.Request.Builder().url(client.castPhotoUrl(c.name)).build()).execute().use { assertEquals(200, it.code) }
+            }
+            client.setCastFavorite(c.name, !c.isFavorite)
+            client.setCastFavorite(c.name, c.isFavorite)              // back as it was
+            assertEquals(c.isFavorite, client.castBio(c.name).isFavorite)
+        }
+        client.videos(ALL_VIDEOS, VideoFilter(), limit = 1).items.firstOrNull()?.let { v ->
+            val was = client.video(v.path).isFavorite
+            assertEquals(!was, client.toggleFavorite(v.path))
+            assertEquals(was, client.toggleFavorite(v.path))           // back as it was
+        }
+        for (sort in MovieSort.entries) client.movies(ALL_VIDEOS, VideoFilter(), sort, limit = 2)
+        println("movie filters: ${client.movieFilters(ALL_VIDEOS, VideoFilter())}")
 
         // code login: works on servers with docs/SERVER_CHANGES.md section 1, a clean 404 on older ones
         try {

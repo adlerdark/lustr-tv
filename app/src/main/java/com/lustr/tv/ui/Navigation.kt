@@ -12,7 +12,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.lustr.tv.AppContainer
+import com.lustr.tv.core.Video
 import com.lustr.tv.ui.browse.BrowseScreen
+import com.lustr.tv.ui.browse.VideoActionsHost
+import com.lustr.tv.ui.info.CastScreen
+import com.lustr.tv.ui.info.VideoInfoScreen
 import com.lustr.tv.ui.login.LoginScreen
 import com.lustr.tv.ui.login.ServerScreen
 import com.lustr.tv.ui.player.PlayerScreen
@@ -24,7 +28,11 @@ private object Routes {
     const val BROWSE = "browse"
     const val SETTINGS = "settings"
     const val PLAYER = "player?path={path}"
+    const val VIDEO_INFO = "video?path={path}"
+    const val CAST = "cast?name={name}"
     fun player(path: String) = "player?path=${Uri.encode(path)}"
+    fun videoInfo(path: String) = "video?path=${Uri.encode(path)}"
+    fun cast(name: String) = "cast?name=${Uri.encode(name)}"
 }
 
 /**
@@ -49,42 +57,61 @@ fun LustrNavHost(container: AppContainer) {
         }
     }
 
-    NavHost(navController = nav, startDestination = start) {
-        composable(Routes.SERVER) {
-            ServerScreen(container, onConnected = { nav.resetTo(Routes.LOGIN) })
-        }
-        composable(Routes.LOGIN) {
-            LoginScreen(
-                container,
-                onLoggedIn = { nav.resetTo(Routes.BROWSE) },
-                onChangeServer = { nav.resetTo(Routes.SERVER) },
-            )
-        }
-        composable(Routes.BROWSE) {
-            BrowseScreen(
-                container,
-                onPlay = { video -> nav.navigate(Routes.player(video.path)) },
-                onSettings = { nav.navigate(Routes.SETTINGS) },
-                onLoggedOut = { nav.resetTo(Routes.LOGIN) },
-            )
-        }
-        composable(Routes.SETTINGS) {
-            SettingsScreen(
-                container,
-                onBack = { nav.popBackStack() },
-                onChangeServer = { container.forgetLogin(); nav.resetTo(Routes.SERVER) },
-                onLoggedOut = { nav.resetTo(Routes.LOGIN) },
-            )
-        }
-        composable(
-            Routes.PLAYER,
-            arguments = listOf(navArgument("path") { type = NavType.StringType; defaultValue = "" }),
-        ) { entry ->
-            PlayerScreen(
-                container,
-                path = entry.arguments?.getString("path").orEmpty(),
-                onExit = { nav.popBackStack() },
-            )
+    val play = { video: Video -> nav.navigate(Routes.player(video.path)) }
+    val openCast = { name: String -> nav.navigate(Routes.cast(name)) }
+
+    // a long press on any video card opens the video menu (VideoActions)
+    VideoActionsHost(container, onPlay = play, onVideoInfo = { nav.navigate(Routes.videoInfo(it.path)) }) {
+        NavHost(navController = nav, startDestination = start) {
+            composable(Routes.SERVER) {
+                ServerScreen(container, onConnected = { nav.resetTo(Routes.LOGIN) })
+            }
+            composable(Routes.LOGIN) {
+                LoginScreen(
+                    container,
+                    onLoggedIn = { nav.resetTo(Routes.BROWSE) },
+                    onChangeServer = { nav.resetTo(Routes.SERVER) },
+                )
+            }
+            composable(Routes.BROWSE) {
+                BrowseScreen(
+                    container,
+                    onPlay = play,
+                    onCast = openCast,
+                    onSettings = { nav.navigate(Routes.SETTINGS) },
+                    onLoggedOut = { nav.resetTo(Routes.LOGIN) },
+                )
+            }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
+                    container,
+                    onBack = { nav.popBackStack() },
+                    onChangeServer = { container.forgetLogin(); nav.resetTo(Routes.SERVER) },
+                    onLoggedOut = { nav.resetTo(Routes.LOGIN) },
+                )
+            }
+            composable(
+                Routes.VIDEO_INFO,
+                arguments = listOf(navArgument("path") { type = NavType.StringType; defaultValue = "" }),
+            ) { entry ->
+                VideoInfoScreen(container, path = entry.arguments?.getString("path").orEmpty(), onPlay = play, onCast = openCast)
+            }
+            composable(
+                Routes.CAST,
+                arguments = listOf(navArgument("name") { type = NavType.StringType; defaultValue = "" }),
+            ) { entry ->
+                CastScreen(container, name = entry.arguments?.getString("name").orEmpty(), onPlay = play)
+            }
+            composable(
+                Routes.PLAYER,
+                arguments = listOf(navArgument("path") { type = NavType.StringType; defaultValue = "" }),
+            ) { entry ->
+                PlayerScreen(
+                    container,
+                    path = entry.arguments?.getString("path").orEmpty(),
+                    onExit = { nav.popBackStack() },
+                )
+            }
         }
     }
 }

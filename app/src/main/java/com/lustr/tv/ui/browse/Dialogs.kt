@@ -155,7 +155,13 @@ fun SortDialog(current: VideoFilter, onPick: (VideoFilter) -> Unit, onDismiss: (
  * Changes apply straight away (the grid behind updates); the counts follow the other filters.
  */
 @Composable
-fun FilterDialog(filter: VideoFilter, counts: FilterCounts?, onChange: (VideoFilter) -> Unit, onDismiss: () -> Unit) {
+fun FilterDialog(
+    filter: VideoFilter,
+    counts: FilterCounts?,
+    onChange: (VideoFilter) -> Unit,
+    onDismiss: () -> Unit,
+    showLength: Boolean = true,
+) {
     val focus = remember { FocusRequester() }
     Panel(onDismiss, side = true) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -174,9 +180,11 @@ fun FilterDialog(filter: VideoFilter, counts: FilterCounts?, onChange: (VideoFil
                     modifier = Modifier.focusRequester(focus),
                 )
             }
-            item { Heading("Length") }
-            items(LengthRange.entries) { range ->
-                ChoiceRow(range.label, onClick = { onChange(filter.toggleLength(range.value)) }, marker = if (range.value in filter.lengths) "✓" else "")
+            if (showLength) {
+                item { Heading("Length") }
+                items(LengthRange.entries) { range ->
+                    ChoiceRow(range.label, onClick = { onChange(filter.toggleLength(range.value)) }, marker = if (range.value in filter.lengths) "✓" else "")
+                }
             }
             tagSection("Tags", counts?.tags, filter.tags, counts == null) { onChange(filter.cycleTag(it)) }
             tagSection("Sites", counts?.sites, filter.sites, counts == null) { onChange(filter.cycleSite(it)) }

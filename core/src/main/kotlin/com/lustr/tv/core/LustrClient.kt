@@ -123,18 +123,58 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
         return reply
     }
 
-    /** Movies in a library / group (by title), optionally searched. */
-    suspend fun movies(library: String, query: String = "", page: Int = 1, limit: Int = 60): MovieList {
+    /**
+     * Movies in a library / group. [filter] uses its query, tags, sites and favoritesOnly
+     * (lengths and sortBy don't apply to movies).
+     */
+    suspend fun movies(
+        library: String,
+        filter: VideoFilter = VideoFilter(),
+        sort: MovieSort = MovieSort.TITLE,
+        page: Int = 1,
+        limit: Int = 60,
+    ): MovieList {
         val reply: MovieList = get(url("api/movies") {
             addQueryParameter("library", library)
-            addQueryParameter("q", query)
-            addQueryParameter("sort", "title")
+            addMovieFilter(filter)
+            addQueryParameter("sort", sort.value)
             addQueryParameter("page", page.toString())
             addQueryParameter("limit", limit.toString())
         })
         if (!reply.success) throw LustrException.ServerError(reply.error ?: "Movies not available", 200)
         return reply
     }
+
+    /** Tag / site counts among the movies the other filters leave (a movie has its scenes' tags). */
+    suspend fun movieFilters(library: String, filter: VideoFilter): FilterCounts =
+        get(url("api/movies/filters") {
+            addQueryParameter("library", library)
+            addMovieFilter(filter)
+        })
+
+    /** Favorite / not; returns the new state. */
+    suspend fun toggleFavorite(path: String): Boolean =
+        favoriteOf(post(url("api/toggle_fav"), json.encodeToString(PathBody.serializer(), PathBody(path))))
+
+    /** Everyone in the cast, with counts (the cast browser filters on the TV). */
+    suspend fun cast(): List<CastMember> = get<CastList>(url("api/cast/all")).cast
+
+    suspend fun castBio(name: String): CastBio = get(url("api/cast") { addPathSegment(name); addPathSegment("bio") })
+
+    /** The StashDB / ThePornDB profile rows, empty when the performer isn't linked. */
+    suspend fun castProfile(name: String): List<Pair<String, String>> {
+        val reply: ExtCastLink = get(url("api/extdb/cast") { addQueryParameter("name", name) })
+        return if (reply.linked) ExtProfile.rows(reply.link) else emptyList()
+    }
+
+    suspend fun setCastFavorite(name: String, favorite: Boolean) {
+        val u = url("api/cast/favorites") { addPathSegment(name) }
+        if (favorite) post<JsonObject>(u, "{}") else call<JsonObject>(Request.Builder().url(u).delete().build())
+    }
+
+    /** The performer's photo (small); a 404 when there is none. */
+    fun castPhotoUrl(name: String): String =
+        url("api/cast/photo") { addPathSegment(name); addQueryParameter("thumbnail", "true") }.toString()
 
     /** One movie with its scenes in order. */
     suspend fun movie(id: Int): MovieDetail {
@@ -162,6 +202,16 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
 
     private fun url(path: String, build: HttpUrl.Builder.() -> Unit = {}): HttpUrl =
         baseUrl.newBuilder().addPathSegments(path).apply(build).build()
+
+    /** /api/movies takes q / favorites where /api/videos takes query / favorites_only. */
+    private fun HttpUrl.Builder.addMovieFilter(filter: VideoFilter) {
+        addQueryParameter("q", filter.query)
+        filter.include(filter.tags)?.let { addQueryParameter("tags", it) }
+        filter.exclude(filter.tags)?.let { addQueryParameter("tags_exclude", it) }
+        filter.include(filter.sites)?.let { addQueryParameter("sites", it) }
+        filter.exclude(filter.sites)?.let { addQueryParameter("sites_exclude", it) }
+        if (filter.favoritesOnly) addQueryParameter("favorites", "true")
+    }
 
     private fun HttpUrl.Builder.addFilter(filter: VideoFilter) {
         addQueryParameter("query", filter.query)

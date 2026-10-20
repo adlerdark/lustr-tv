@@ -34,6 +34,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
+import com.lustr.tv.core.CAST_BROWSER
 import com.lustr.tv.core.HOME
 import com.lustr.tv.core.LibraryTab
 import com.lustr.tv.core.Video
@@ -41,7 +42,13 @@ import com.lustr.tv.ui.theme.LustrColors
 
 /** Sidebar on the left; on the right Home, or the open library / group with its tabs. */
 @Composable
-fun BrowseScreen(container: AppContainer, onPlay: (Video) -> Unit, onSettings: () -> Unit, onLoggedOut: () -> Unit) {
+fun BrowseScreen(
+    container: AppContainer,
+    onPlay: (Video) -> Unit,
+    onCast: (String) -> Unit,
+    onSettings: () -> Unit,
+    onLoggedOut: () -> Unit,
+) {
     val vm: BrowseViewModel = viewModel { BrowseViewModel(container) }
     val tree by vm.tree.collectAsStateWithLifecycle()
     val sidebar by vm.sidebar.collectAsStateWithLifecycle()
@@ -82,6 +89,11 @@ fun BrowseScreen(container: AppContainer, onPlay: (Video) -> Unit, onSettings: (
                     Column {
                         Header(title = "Home")
                         RecommendedTab(container, library = null, imageUrl = client::absoluteUrl, onPlay = onPlay)
+                    }
+                } else if (library == CAST_BROWSER) {
+                    Column {
+                        Header(title = "Cast")
+                        CastBrowserContent(container, onCast)
                     }
                 } else {
                     val tab = tabs[library] ?: LibraryTab.RECOMMENDED

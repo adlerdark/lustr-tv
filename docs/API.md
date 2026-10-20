@@ -48,6 +48,16 @@ listed). Metadata lives on the video; codec/size/length on the file version.
 | `GET /api/movies?library=&q=&sort=title&page=&limit=` | `{success, movies: [{id, title, display, year, studio, count, has_cover, cover, favorite}], total}` |
 | `GET /api/movies/{id}` | `{success, movie: {…, description, director, runtime (min), tags}, items: [Video with movie_scene]}` |
 
+| `GET /api/movies/filters?library=&q=&tags=…&favorites=` | `{success, tags: {name: count}, sites: {name: count}}` among the movies the filters leave |
+| `POST /api/toggle_fav` | body `{path}` → `{favorite: true/false}` |
+| `GET /api/cast/all` | `{cast: [{name, count, is_favorite, has_photo, gender, category, aliases}]}` (everyone at once) |
+| `GET /api/cast/{name}/bio` | `{name, aliases, is_favorite, has_photo, gender, category, exact_matches: [Video], library_distribution, appearance: {hair: [...]}, stats}` |
+| `GET /api/cast/photo/{name}?thumbnail=true` | the photo (404 when there is none) |
+| `POST` / `DELETE /api/cast/favorites/{name}` | mark / unmark a favorite performer |
+| `GET /api/extdb/cast?name=` | `{linked, link}`: the stored StashDB / ThePornDB profile (no network call) |
+| `POST /api/tv/pair/start`, `/api/tv/pair/poll` | code sign-in (lustr 0.8+, see SERVER_CHANGES.md §1) |
+| `GET` / `POST /api/settings/display-filter` | the orientation filter (`{types}`); TVs have their own on lustr 0.8+ |
+
 `/api/videos` and `/api/available_filters` take the same filter parameters: comma-separated
 `tags` / `tags_exclude` / `sites` / `sites_exclude`, `favorites_only=true`, and `length_filter`
 as comma-separated `from-to` second ranges (`0-120,2400-28800`). Sorts: `Title`, `Filename`,
@@ -79,8 +89,7 @@ the list fields `cast, site, tags, ethnicity, hair, body, outfit, theme, …` (a
 ## Other route groups (not used yet)
 
 - `/api/playlists` – list, `/{id}/items`, create / rename / add / remove / reorder; a built-in **Watchlist**.
-- `/api/cast/...` – performers: `/all`, `/{name}/videos`, `/{name}/bio`, `/photo/{name}`, favorites.
-- `/api/movies/filters` – tag / site counts for the Movies tab.
+- `/api/cast/{name}/videos`, aliases, attributes editing, `/api/extdb/*` searches and linking.
 - `/api/watch/...` – `continue_watching`, `recently_watched`, `log`, `stats`.
 - `/api/toggle_fav`, `/api/metadata/update` – editing (favorite, tags, …).
 - `/api/player/markers`, `/api/player/sprites/*`, `/api/captions/*`, `/api/clips/*`.
