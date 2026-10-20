@@ -146,7 +146,7 @@ private fun PasswordLogin(container: AppContainer, onLoggedIn: () -> Unit, onUse
         error = null
         scope.launch {
             try {
-                container.client.login(username.trim(), password, client = "tv")
+                container.client.login(username.trim(), password, client = "tv", deviceName = Build.MODEL ?: "TV")
                 password = ""
                 onLoggedIn()
             } catch (e: LustrException.NotLoggedIn) {

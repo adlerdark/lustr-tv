@@ -22,6 +22,8 @@ internal data class LoginBody(
     val password: String,
     /** "tv": ask for a TV session (4 hours at most; servers without TV support ignore it). */
     val client: String? = null,
+    /** Shown in the web app's list of linked TVs. */
+    @SerialName("device_name") val deviceName: String? = null,
 )
 
 /** POST /api/tv/pair/start: the code to show, and the secret id to poll with (never shown). */

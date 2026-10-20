@@ -45,8 +45,8 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
     suspend fun authStatus(): AuthStatus = get(url("api/check_auth"))
 
     /** Logs in; the session cookie lands in the cookie jar. [client] = "tv" asks for a 4-hour TV session. */
-    suspend fun login(username: String, password: String, client: String? = null) {
-        post<JsonObject>(url("api/login"), json.encodeToString(LoginBody.serializer(), LoginBody(username, password, client)))
+    suspend fun login(username: String, password: String, client: String? = null, deviceName: String? = null) {
+        post<JsonObject>(url("api/login"), json.encodeToString(LoginBody.serializer(), LoginBody(username, password, client, deviceName)))
     }
 
     /**

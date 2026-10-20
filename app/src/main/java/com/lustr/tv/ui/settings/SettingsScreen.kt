@@ -100,7 +100,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onChangeServer: 
         }
 
         heading("Orientation filter")
-        item { Note("Which libraries and videos are shown. Saved on the server for your account, so the web app follows it too.") }
+        item { Note("Which libraries and videos are shown. Saved on the server; lustr 0.8+ keeps a separate choice for TVs, older servers share it with the web app.") }
         when (val d = display) {
             Load.Loading -> item { Note("Loading…") }
             is Load.Failed -> item { Note("Couldn't load: ${d.message}") }
