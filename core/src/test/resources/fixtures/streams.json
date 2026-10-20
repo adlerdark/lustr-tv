@@ -1,0 +1,49 @@
+{
+ "success": true,
+ "video_id": "TestLib_Gamma_Scene",
+ "path": "/media/TestLib/Gamma Scene.mkv",
+ "duration": 15.0,
+ "width": 640,
+ "height": 360,
+ "codec": "h264",
+ "audio": false,
+ "cache_id": "a197debddf8bd6b8b369cc00be653ae9",
+ "sources": [
+  {
+   "kind": "direct",
+   "label": "Direct",
+   "res": "direct",
+   "likely": false,
+   "type": "video/webm",
+   "src": "/files/media/TestLib/Gamma%20Scene.mkv"
+  },
+  {
+   "kind": "hls",
+   "label": "HLS Original (360p)",
+   "res": "original",
+   "likely": true,
+   "type": "application/x-mpegURL",
+   "src": "/api/player/hls/original/index.m3u8?path=%2Fmedia%2FTestLib%2FGamma%20Scene.mkv"
+  },
+  {
+   "kind": "hls",
+   "label": "HLS 240p",
+   "res": "240",
+   "likely": true,
+   "type": "application/x-mpegURL",
+   "src": "/api/player/hls/240/index.m3u8?path=%2Fmedia%2FTestLib%2FGamma%20Scene.mkv"
+  }
+ ],
+ "start_source": 1,
+ "sprite": {
+  "ready": false,
+  "vtt": "/cache/a197debddf8bd6b8b369cc00be653ae9/thumbs.vtt?v=0",
+  "queued": true
+ },
+ "chapters_added": 0,
+ "captions": {
+  "tracks": [],
+  "queued": false,
+  "whisper": false
+ }
+}
