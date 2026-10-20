@@ -92,7 +92,6 @@ private fun CodeLogin(container: AppContainer, onLoggedIn: () -> Unit, onUsePass
                 }
                 problem = null
                 if (status.approved) {
-                    container.markLoggedIn()
                     loggedIn()
                     return@LaunchedEffect
                 }
@@ -127,7 +126,7 @@ private fun CodeLogin(container: AppContainer, onLoggedIn: () -> Unit, onUsePass
     LaunchedEffect(notSupported) { runCatching { passwordButton.requestFocus() } }
 }
 
-/** Username and password; the server is asked for a TV session (4 hours at most). Nothing is stored. */
+/** Username and password; the server is asked for a TV session. The password is never stored. */
 @Composable
 private fun PasswordLogin(container: AppContainer, onLoggedIn: () -> Unit, onUseCode: () -> Unit, onChangeServer: () -> Unit) {
     var username by remember { mutableStateOf("") }
@@ -149,7 +148,6 @@ private fun PasswordLogin(container: AppContainer, onLoggedIn: () -> Unit, onUse
             try {
                 container.client.login(username.trim(), password, client = "tv")
                 password = ""
-                container.markLoggedIn()
                 onLoggedIn()
             } catch (e: LustrException.NotLoggedIn) {
                 error = e.message                       // "Invalid username or password"

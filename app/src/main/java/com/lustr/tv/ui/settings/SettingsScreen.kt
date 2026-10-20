@@ -146,7 +146,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onChangeServer: 
                 change { it.copy(privacyScreen = !it.privacyScreen) }
             }
         }
-        item { Note("Sign-in always lasts 4 hours at most and is asked again every time the app opens.") }
+        item { Note("The TV stays signed in until the server ends the session (or you log out below).") }
 
         heading("Server")
         item { SettingRow("Server", container.serverUrl?.let { "${it.host}:${it.port}" } ?: "-") { onChangeServer() } }

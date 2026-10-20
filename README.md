@@ -18,11 +18,12 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
 
 - **Privacy**: on the TV the app is called **lstr**. Nothing before sign-in names it or hints at
   what it is. The sign-in screen only says "Enter this code in the web app".
-- **Sign in**: every time the app opens, it shows a 4-digit code; enter it in lustr's web app
-  (Settings → General → Link a TV) and the TV signs in. This needs the server change in
+- **Sign in**: the app shows a 4-digit code; enter it in lustr's web app (Settings → General →
+  Link a TV) and the TV signs in. This needs the server change in
   [`docs/SERVER_CHANGES.md`](docs/SERVER_CHANGES.md) §1; until then use **Use password instead**.
-  A sign-in lasts **4 hours at most**, and nothing is kept when the app closes. The server address
-  is remembered; **Search network** finds the server by itself.
+  The TV stays signed in (also after closing the app) until the server ends the session – its
+  limit for TV sessions, the inactivity timeout, or **Log out**. The server address is remembered;
+  **Search network** finds the server by itself.
 
 - **Sidebar** (left): the lustr logo, **Home**, **All Videos**, then your libraries and groups in the
   same order as the web app (hidden libraries and the display filter are respected). Groups start

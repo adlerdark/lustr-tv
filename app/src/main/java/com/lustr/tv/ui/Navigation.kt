@@ -29,13 +29,17 @@ private object Routes {
 
 /**
  * Server -> Login -> Browse (sidebar + tabs) -> Player / Settings.
- * The server address is remembered, the login isn't: the app always opens on Login.
- * Any screen goes back to Login when the session ends.
+ * The server address and the login are remembered; any screen goes back to Login when the
+ * server ends the session.
  */
 @Composable
 fun LustrNavHost(container: AppContainer) {
     val nav = rememberNavController()
-    val start = if (container.serverUrl == null) Routes.SERVER else Routes.LOGIN
+    val start = when {
+        container.serverUrl == null -> Routes.SERVER
+        container.hasLogin -> Routes.BROWSE
+        else -> Routes.LOGIN
+    }
 
     val sessionEnded by container.sessionEnded.collectAsStateWithLifecycle()
     LaunchedEffect(sessionEnded) {

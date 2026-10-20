@@ -226,6 +226,16 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
 
             override fun onTracksChanged(newTracks: Tracks) {
                 tracks = newTracks
+                // A track this device has no decoder for is left out silently: the clock runs with
+                // no picture / sound. Treat that like an error and move on to a transcode.
+                val missing = undecodable(newTracks) ?: return
+                val next = sourceIndex + 1
+                if (next < sources.size) {
+                    message = "This device can't decode the $missing of this file – switching to ${sources[next].label}…"
+                    play(next, player.currentPosition)
+                } else {
+                    message = "This device can't decode the $missing of this video."
+                }
             }
         }
         player.addListener(listener)
@@ -379,6 +389,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
 
     if (menuOpen) {
         PlayerMenu(
+            info = nowPlaying(player, sources.getOrNull(sourceIndex)),
             sources = sources,
             current = sourceIndex,
             tracks = tracks,
@@ -510,6 +521,7 @@ private fun SeekOverlay(position: Long, duration: Long, modifier: Modifier = Mod
 /** ⚙: quality, captions, audio track, speed, picture. */
 @Composable
 private fun PlayerMenu(
+    info: List<String>,
     sources: List<StreamSource>,
     current: Int,
     tracks: Tracks,
@@ -526,6 +538,10 @@ private fun PlayerMenu(
     Panel(onDismiss, side = true) {
         LazyColumn(Modifier.fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             item { SectionTitle("Playback", Modifier.padding(bottom = 4.dp)) }
+            item { MenuHeading("Now playing") }
+            items(info) { line ->
+                Text(line, style = MaterialTheme.typography.bodySmall, color = LustrColors.textPrimary, modifier = Modifier.padding(start = 12.dp))
+            }
             item { MenuHeading("Quality") }
             items(sources.size) { i ->
                 val s = sources[i]
@@ -570,6 +586,32 @@ private fun MenuHeading(text: String) {
 // ---- helpers --------------------------------------------------------------------------------
 
 private fun textGroups(tracks: Tracks) = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+
+/** "picture", "sound" or both when the file has such tracks but none could be picked (no decoder); else null. */
+private fun undecodable(tracks: Tracks): String? {
+    if (tracks.isEmpty) return null
+    fun broken(type: Int) = tracks.groups.filter { it.type == type }.let { g -> g.isNotEmpty() && g.none { it.isSelected } }
+    val picture = broken(C.TRACK_TYPE_VIDEO)
+    val sound = broken(C.TRACK_TYPE_AUDIO)
+    return when {
+        picture && sound -> "picture and sound"
+        picture -> "picture"
+        sound -> "sound"
+        else -> null
+    }
+}
+
+/** For ⚙ → Now playing: what's being decoded right now. */
+@OptIn(UnstableApi::class)
+private fun nowPlaying(player: ExoPlayer, source: StreamSource?): List<String> {
+    val v = player.videoFormat
+    val a = player.audioFormat
+    return listOf(
+        "Source: " + (source?.let { if (it.isDirect) "original file (direct play)" else it.label.replace("HLS", "transcode") } ?: "-"),
+        "Picture: " + (v?.let { "${it.width}×${it.height} ${it.sampleMimeType?.substringAfter('/') ?: ""}" } ?: "none"),
+        "Sound: " + (a?.let { "${it.sampleMimeType?.substringAfter('/') ?: ""}, ${it.channelCount} channels" } ?: "none"),
+    )
+}
 
 private fun trackLabel(g: Tracks.Group, fallback: String): String {
     val f = g.getTrackFormat(0)

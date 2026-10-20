@@ -33,45 +33,26 @@ sealed interface Load<out T> {
 class AppContainer(context: Context) {
     private val prefs = context.getSharedPreferences("lustr", Context.MODE_PRIVATE)
 
-    init {
-        prefs.edit { remove(KEY_OLD_COOKIES) }           // logins used to be kept; not any more
-    }
-
     /**
-     * The login cookie lives in memory only: every start of the app asks for a new login.
-     * (The server address is remembered.)
+     * The login cookie is kept across app starts, so the TV stays linked until the server ends
+     * the session (its own limit for TV sessions, the inactivity timeout, or a log out).
      */
     val cookieJar = PersistentCookieJar(object : CookieStorage {
-        private var value: String? = null
-        override fun load(): String? = value
-        override fun save(value: String?) {
-            this.value = value
-        }
+        override fun load(): String? = prefs.getString(KEY_COOKIES, null)
+        override fun save(value: String?) = prefs.edit { putString(KEY_COOKIES, value) }
     })
 
-    @Volatile
-    private var loggedInAt: Long? = null
-
-    /** Call after a successful login: the TV ends it itself after [MAX_LOGIN_MS], whatever the server does. */
-    fun markLoggedIn() {
-        loggedInAt = System.currentTimeMillis()
-    }
-
+    /** Log out on this TV (also when changing servers). */
     fun forgetLogin() {
-        loggedInAt = null
         cookieJar.clear()
     }
 
+    /** True when a login cookie for the chosen server is kept (it may still have ended on the server). */
+    val hasLogin: Boolean
+        get() = serverUrl?.let { cookieJar.hasCookiesFor(it) } == true
+
     val http: OkHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
-        .addInterceptor { chain ->
-            val since = loggedInAt
-            if (since != null && System.currentTimeMillis() - since > MAX_LOGIN_MS) {
-                forgetLogin()                            // the request then gets a 401 -> login screen
-                sessionEnded.value = true
-            }
-            chain.proceed(chain.request())
-        }
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)      // the first HLS segment waits for the transcoder
         .build()
@@ -87,10 +68,7 @@ class AppContainer(context: Context) {
 
     /** Every failed request passes through here, so a 401 anywhere leads back to login. */
     fun onError(e: IOException) {
-        if (e is LustrException.NotLoggedIn) {
-            loggedInAt = null
-            sessionEnded.value = true
-        }
+        if (e is LustrException.NotLoggedIn) sessionEnded.value = true
     }
 
     /** Run one request: Ready with the result, or Failed with a message to show. */
@@ -132,11 +110,9 @@ class AppContainer(context: Context) {
     @Volatile
     var keyInterceptor: ((KeyEvent) -> Boolean)? = null
 
-    companion object {
-        /** A TV login lasts at most 4 hours. */
-        const val MAX_LOGIN_MS = 4 * 60 * 60 * 1000L
-        private const val KEY_SERVER = "server_url"
-        private const val KEY_OLD_COOKIES = "cookies"
-        private const val KEY_SETTINGS = "tv_settings"
+    private companion object {
+        const val KEY_SERVER = "server_url"
+        const val KEY_COOKIES = "cookies"
+        const val KEY_SETTINGS = "tv_settings"
     }
 }
