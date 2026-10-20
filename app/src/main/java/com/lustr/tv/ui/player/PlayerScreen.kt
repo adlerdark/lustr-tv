@@ -664,10 +664,15 @@ private fun Chapters(
                 .padding(vertical = 4.dp),
         )
     } else {
+        // Close only when focus was in the row and then left it (▼ to the bar). The row also hears
+        // "no focus" the moment it appears, before a card has been focused - that must not close it.
+        var hadFocus by remember { mutableStateOf(false) }
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(vertical = 10.dp),
-            modifier = Modifier.onFocusChanged { if (!it.hasFocus) open = false },
+            modifier = Modifier.onFocusChanged {
+                if (it.hasFocus) hadFocus = true else if (hadFocus) open = false
+            },
         ) {
             items(markers.size) { i ->
                 val m = markers[i]
@@ -686,6 +691,7 @@ private fun Chapters(
                 if (runCatching { currentFocus.requestFocus() }.isSuccess) return@LaunchedEffect
                 delay(25)
             }
+            open = false                                   // couldn't focus a card: back to the label
         }
     }
 }
