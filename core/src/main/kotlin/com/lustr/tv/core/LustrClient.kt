@@ -60,24 +60,67 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
     }
 
     /**
-     * One page of a library. [query] takes the same search syntax as the web app
-     * (cast:jane*, site:(a,b), ...); [sortBy] the same names (Date Created, Title, Recently Added, Random, ...).
+     * One page of a library or group, filtered and sorted like the web app's Library tab.
+     * [seed] keeps a Random sort in the same order from page to page.
      */
     suspend fun videos(
-        library: String = "All Videos",
-        query: String = "",
-        sortBy: String = "Date Created",
-        descending: Boolean = true,
+        library: String = ALL_VIDEOS,
+        filter: VideoFilter = VideoFilter(),
         page: Int = 1,
         limit: Int = 50,
+        seed: Int = 0,
     ): VideoPage = get(url("api/videos") {
         addQueryParameter("library", library)
-        addQueryParameter("query", query)
-        addQueryParameter("sort_by", sortBy)
-        addQueryParameter("desc", descending.toString())
+        addFilter(filter)
+        addQueryParameter("sort_by", filter.sortBy)
+        addQueryParameter("desc", filter.descending.toString())
         addQueryParameter("page", page.toString())
         addQueryParameter("limit", limit.toString())
+        addQueryParameter("seed", seed.toString())
     })
+
+    /** Tags and sites (with counts) among the videos the other filters leave. */
+    suspend fun availableFilters(library: String, filter: VideoFilter): FilterCounts =
+        get(url("api/available_filters") {
+            addQueryParameter("library", library)
+            addFilter(filter)
+        })
+
+    /** Collections shown on a library's / group's Collections tab. */
+    suspend fun collections(library: String): List<VideoCollection> {
+        val reply: CollectionList = get(url("api/collections") { addQueryParameter("library", library) })
+        if (!reply.success) throw LustrException.ServerError(reply.error ?: "Collections not available", 200)
+        return reply.collections
+    }
+
+    suspend fun collectionItems(id: Int, page: Int = 1, limit: Int = 60): CollectionItems {
+        val reply: CollectionItems = get(url("api/collections/$id/items") {
+            addQueryParameter("page", page.toString())
+            addQueryParameter("limit", limit.toString())
+        })
+        if (!reply.success) throw LustrException.ServerError(reply.error ?: "Can't open this collection", 200)
+        return reply
+    }
+
+    /** Movies in a library / group (by title), optionally searched. */
+    suspend fun movies(library: String, query: String = "", page: Int = 1, limit: Int = 60): MovieList {
+        val reply: MovieList = get(url("api/movies") {
+            addQueryParameter("library", library)
+            addQueryParameter("q", query)
+            addQueryParameter("sort", "title")
+            addQueryParameter("page", page.toString())
+            addQueryParameter("limit", limit.toString())
+        })
+        if (!reply.success) throw LustrException.ServerError(reply.error ?: "Movies not available", 200)
+        return reply
+    }
+
+    /** One movie with its scenes in order. */
+    suspend fun movie(id: Int): MovieDetail {
+        val reply: MovieDetail = get(url("api/movies/$id"))
+        if (!reply.success) throw LustrException.ServerError(reply.error ?: "Can't open this movie", 200)
+        return reply
+    }
 
     /** One video, with its current resume point. */
     suspend fun video(path: String): Video = get(url("api/video") { addQueryParameter("path", path) })
@@ -98,6 +141,16 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
 
     private fun url(path: String, build: HttpUrl.Builder.() -> Unit = {}): HttpUrl =
         baseUrl.newBuilder().addPathSegments(path).apply(build).build()
+
+    private fun HttpUrl.Builder.addFilter(filter: VideoFilter) {
+        addQueryParameter("query", filter.query)
+        filter.include(filter.tags)?.let { addQueryParameter("tags", it) }
+        filter.exclude(filter.tags)?.let { addQueryParameter("tags_exclude", it) }
+        filter.include(filter.sites)?.let { addQueryParameter("sites", it) }
+        filter.exclude(filter.sites)?.let { addQueryParameter("sites_exclude", it) }
+        if (filter.favoritesOnly) addQueryParameter("favorites_only", "true")
+        filter.lengthParam?.let { addQueryParameter("length_filter", it) }
+    }
 
     private suspend inline fun <reified T> get(url: HttpUrl): T =
         call(Request.Builder().url(url).get().build())
@@ -138,6 +191,7 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
 
         internal val json = Json {
             ignoreUnknownKeys = true
+            isLenient = true             // e.g. a movie year sent as a number where a string is expected
             coerceInputValues = true     // null where a default exists -> the default
             explicitNulls = false
             encodeDefaults = true        // always send every field (e.g. log_only: false)

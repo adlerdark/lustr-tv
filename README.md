@@ -10,12 +10,28 @@ core/   Talks to the lustr server: data models, login cookie, API calls, playbac
         Plain Kotlin (no Android), so it has fast unit tests.
 app/    The Android TV app: screens (Jetpack Compose for TV) and the player (Media3 ExoPlayer).
 docs/   API.md - the lustr endpoints this app uses, and how login works.
+third_party/  Licence of the bundled Tangerine font (the lustr logo font, SIL Open Font License).
 ```
 
-Screens so far: **Server address → Log in → Home rows → Player**.
+Screens so far: **Server address → Log in → Browse (sidebar + tabs) → Player**.
 
+- **Sidebar** (left): the lustr logo, **Home**, **All Videos**, then your libraries and groups in the
+  same order as the web app (hidden libraries and the display filter are respected). Groups start
+  collapsed:
+  - a collapsed group: OK expands it **and** opens it;
+  - an expanded group that isn't open: OK opens it;
+  - the open, expanded group: OK collapses it (it stays open). So a double press always ends collapsed.
+  - **Back** from anywhere on the right jumps to the sidebar.
 - **Home** shows the same rows as lustr's web Home (Continue Watching, Recently Added, Because you
-  watched…, Favorites, …) with thumbnails and resume bars. It refreshes whenever you come back to it.
+  watched…, Favorites, …). It refreshes whenever you come back to it.
+- Every library / group has the web app's tabs:
+  - **Recommended** – that library's Home rows.
+  - **Library** – every video, paged as you scroll. **Search** (with lustr's search syntax, e.g.
+    `cast:jane*`), **Sort** (pick the same sort again to reverse it), and **Filters**: favorites only,
+    length, and tags / sites with counts – press once for ✓ (must have), again for ✕ (must not have),
+    again to clear.
+  - **Collections** – hand-picked and smart collections; open one to see its videos.
+  - **Movies** – movies built from scenes; open one for its details and scenes in order.
 - **Player** plays the original file directly (the Shield decodes MKV / HEVC / most formats itself, so
   the server does no work). If a file won't play, it switches to the server's HLS transcode
   automatically. It resumes where you left off, shows lustr's captions (CC button), and saves progress
@@ -90,9 +106,9 @@ LUSTR_TEST_URL=192.168.1.20:8008 LUSTR_TEST_USER=you LUSTR_TEST_PASSWORD='...' .
 
 ## Ideas for next steps
 
-- Library screen: a grid per library using `/api/videos` (paging, sort, search syntax).
 - Video details screen (cast, site, tags, versions) before playing.
-- Playlists / Watchlist (`/api/playlists`) and Collections (`/api/collections`).
+- Playlists / Watchlist (`/api/playlists`).
+- Follow the theme chosen in lustr's settings (the app uses lustr's default dark theme).
 - Seek-bar previews from the server's sprite sheets (`sprite.vtt` in `/api/player/streams`).
 - A media session (play/pause from the Google TV / Shield remote apps). Not added yet on purpose: it
   would show the video's title outside the app, so it should follow lustr's "Lock screen" privacy setting.

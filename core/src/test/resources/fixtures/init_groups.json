@@ -1,0 +1,101 @@
+{
+ "libraries": {
+  "TestLib": [
+   "/media/TestLib"
+  ],
+  "LibA": [
+   "/media/LibA"
+  ],
+  "LibB": [
+   "/media/LibB"
+  ]
+ },
+ "library_order": [
+  "Studios",
+  "TestLib",
+  "LibA",
+  "LibB"
+ ],
+ "hidden_libraries": [],
+ "library_groups": {
+  "Studios": {
+   "libraries": [
+    "LibA",
+    "Extras"
+   ]
+  },
+  "Extras": {
+   "libraries": [
+    "LibB"
+   ],
+   "parent": "Studios"
+  }
+ },
+ "tags": {
+  "outdoor": 2
+ },
+ "sites": {
+  "studiox": 2
+ },
+ "list_fields": [
+  "site",
+  "tags",
+  "cast",
+  "ethnicity",
+  "nationality",
+  "hair",
+  "body",
+  "tits",
+  "ass",
+  "face",
+  "cock",
+  "outfit",
+  "theme",
+  "feature",
+  "cumshot",
+  "participants",
+  "orientation"
+ ],
+ "config": {},
+ "all_columns": [
+  "Fav",
+  "Title",
+  "Cast",
+  "Date Created",
+  "File Size",
+  "Length",
+  "Rating",
+  "Site",
+  "Tags",
+  "Path",
+  "Resolution",
+  "Codec",
+  "Extension",
+  "Date Added",
+  "Date Edited"
+ ],
+ "hide_zero_length_default": "hide",
+ "thumbnail_frames": 8,
+ "library_settings": {},
+ "library_types": {
+  "TestLib": "mixed",
+  "LibA": "mixed",
+  "LibB": "mixed"
+ },
+ "library_own_types": {},
+ "group_types": {},
+ "display_types": [
+  "straight",
+  "gay",
+  "bisexual",
+  "trans",
+  "lesbian"
+ ],
+ "display_filter": [
+  "straight",
+  "gay",
+  "bisexual",
+  "trans",
+  "lesbian"
+ ]
+}

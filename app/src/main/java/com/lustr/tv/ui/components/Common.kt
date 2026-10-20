@@ -23,8 +23,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.lustr.tv.ui.theme.LustrLogo
 
 /** A single-line text field for the remote: highlighted when focused, OK opens the keyboard. */
 @Composable
@@ -60,7 +62,7 @@ fun TvTextField(
     }
 }
 
-/** A centred column for the setup screens. */
+/** A centred column for the setup screens, under the logo (as on the web app's login page). */
 @Composable
 fun FormPage(content: @Composable () -> Unit) {
     Box(
@@ -69,7 +71,10 @@ fun FormPage(content: @Composable () -> Unit) {
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) { content() }
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            LustrLogo(size = 72.sp)
+            content()
+        }
     }
 }
 

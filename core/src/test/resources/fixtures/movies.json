@@ -1,0 +1,23 @@
+{
+ "success": true,
+ "movies": [
+  {
+   "id": 1,
+   "title": "Big Movie",
+   "year": "",
+   "studio": "",
+   "linked": false,
+   "has_cover": false,
+   "updated_at": "2026-10-20 15:27:38",
+   "count": 2,
+   "added": "2026-10-20 15:27:12.073598",
+   "status": "unchecked",
+   "edition": "",
+   "favorite": false,
+   "display": "Big Movie",
+   "count_all": 2,
+   "cover": "/cache/737b1e2e3727eb5b1a3993bc2bfc3ff2/thumb_0.webp?v=1792510033"
+  }
+ ],
+ "total": 1
+}

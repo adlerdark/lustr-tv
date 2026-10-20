@@ -42,6 +42,26 @@ listed). Metadata lives on the video; codec/size/length on the file version.
 | `GET /files/<path>` | the original file, with HTTP range support (206) |
 | `GET /api/player/hls/{res}/index.m3u8?path=` | VOD HLS playlist (2 s segments, `#EXT-X-ENDLIST`); `res` = `original`, `1080`, `720`, `480`, `240` |
 | `POST /api/watch/progress` | body `{path, current_time, duration, play_id, played, log_only}` – resume point + Play History |
+| `GET /api/available_filters?library=&query=&tags=&tags_exclude=&sites=&sites_exclude=&favorites_only=&length_filter=` | `{tags: {name: count}, sites: {name: count}}` among the videos the other filters leave (names lower-case) |
+| `GET /api/collections?library=` | `{success, collections: [{id, name, kind: "collection"/"smart", description, count, cover}]}` (all of them for All Videos) |
+| `GET /api/collections/{id}/items?page=&limit=` | `{success, collection, items: [Video], total}` |
+| `GET /api/movies?library=&q=&sort=title&page=&limit=` | `{success, movies: [{id, title, display, year, studio, count, has_cover, cover, favorite}], total}` |
+| `GET /api/movies/{id}` | `{success, movie: {…, description, director, runtime (min), tags}, items: [Video with movie_scene]}` |
+
+`/api/videos` and `/api/available_filters` take the same filter parameters: comma-separated
+`tags` / `tags_exclude` / `sites` / `sites_exclude`, `favorites_only=true`, and `length_filter`
+as comma-separated `from-to` second ranges (`0-120,2400-28800`). Sorts: `Title`, `Filename`,
+`Date Created`, `Length`, `File Size`, `Rating`, `Recently Added`, `Most Played`, `Last Played`,
+`Time Watched`, `Random` (with `seed` for stable paging).
+
+### Sidebar (index.html: `visibleLibraries`)
+
+`/api/init` → Home, All Videos (unless in `hidden_libraries`), then `library_order`: a group
+without a `parent` is shown with its `libraries` (libraries and sub-groups, recursively); a
+library that isn't in any group is shown at the top level; libraries missing from the order come
+last. Hidden libraries are left out, and while the display filter is on (`display_filter` shorter
+than `display_types`) so are libraries whose `library_types` entry isn't selected (`mixed` always
+shows), and groups left empty.
 
 A `Video` item has: `path, filename, title, year, rating, favorite (0/1), resolution, codec, extension,
 length ("HH:MM:SS"), total_bitrate, file_size, date_added, cache_id, video_id, thumb (relative URL or
@@ -59,9 +79,8 @@ the list fields `cast, site, tags, ethnicity, hair, body, outfit, theme, …` (a
 ## Other route groups (not used yet)
 
 - `/api/playlists` – list, `/{id}/items`, create / rename / add / remove / reorder; a built-in **Watchlist**.
-- `/api/collections` – hand-picked or saved-filter collections, `/{id}/items`.
 - `/api/cast/...` – performers: `/all`, `/{name}/videos`, `/{name}/bio`, `/photo/{name}`, favorites.
-- `/api/movies` – full movies made of scenes; `/{id}`, `/{id}/cover`.
+- `/api/movies/filters` – tag / site counts for the Movies tab.
 - `/api/watch/...` – `continue_watching`, `recently_watched`, `log`, `stats`.
 - `/api/toggle_fav`, `/api/metadata/update` – editing (favorite, tags, …).
 - `/api/player/markers`, `/api/player/sprites/*`, `/api/captions/*`, `/api/clips/*`.

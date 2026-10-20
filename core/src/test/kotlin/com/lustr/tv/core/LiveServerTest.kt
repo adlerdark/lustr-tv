@@ -52,4 +52,46 @@ class LiveServerTest {
         client.logout()
         assertTrue(!client.authStatus().authenticated)
     }
+
+    @Test
+    fun everyLibraryAndTab() = runBlocking {
+        assumeTrue("LUSTR_TEST_URL not set", !url.isNullOrBlank() && user != null && password != null)
+        val http = OkHttpClient.Builder().cookieJar(PersistentCookieJar(MemoryStorage())).build()
+        val client = LustrClient(LustrClient.parseServerUrl(url!!)!!, http)
+        client.login(user!!, password!!)
+
+        val tree = LibraryTree.build(client.init())
+        val all = LibraryTree.visible(tree, tree.flatMap { allGroups(it) }.toSet())
+        println("sidebar:\n" + all.joinToString("\n") { "  ".repeat(it.depth + 1) + it.name + if (it.isGroup) "/" else "" })
+
+        for (node in all.filter { it.name != HOME }) {
+            val rows = client.home(node.name)
+            val page = client.videos(node.name, VideoFilter(), limit = 3)
+            val counts = client.availableFilters(node.name, VideoFilter())
+            val collections = client.collections(node.name)
+            val movies = client.movies(node.name, limit = 3)
+            println("${node.name}: ${rows.size} rows, ${page.total} videos, ${counts.tags.size} tags, " +
+                "${collections.size} collections, ${movies.total} movies")
+            collections.firstOrNull()?.let { client.collectionItems(it.id, limit = 3) }
+            movies.movies.firstOrNull()?.let { assertTrue(client.movie(it.id).items.isNotEmpty()) }
+        }
+
+        // every sort and a filter are accepted by the server
+        for (sort in SortOption.entries) {
+            client.videos(ALL_VIDEOS, VideoFilter(sortBy = sort.value, descending = sort.descendingByDefault), limit = 2)
+        }
+        val counts = client.availableFilters(ALL_VIDEOS, VideoFilter())
+        counts.tags.keys.firstOrNull()?.let { tag ->
+            val withTag = client.videos(ALL_VIDEOS, VideoFilter().cycleTag(tag), limit = 1).total
+            val withoutTag = client.videos(ALL_VIDEOS, VideoFilter().cycleTag(tag).cycleTag(tag), limit = 1).total
+            val everything = client.videos(ALL_VIDEOS, VideoFilter(), limit = 1).total
+            assertEquals("tag $tag: with + without = all", everything, withTag + withoutTag)
+        }
+        val short = client.videos(ALL_VIDEOS, VideoFilter().toggleLength(LengthRange.UNDER_2.value), limit = 1).total
+        println("under 2 min: $short")
+        client.logout()
+    }
+
+    private fun allGroups(node: SidebarNode): List<String> =
+        if (node.isGroup) listOf(node.name) + node.children.flatMap { allGroups(it) } else emptyList()
 }

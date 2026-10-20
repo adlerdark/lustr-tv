@@ -34,6 +34,8 @@ data class Video(
     val extension: String? = null,
     /** "HH:MM:SS" */
     val length: String? = null,
+    /** Scene number, when this video is part of a movie. */
+    @SerialName("movie_scene") val movieScene: String? = null,
     @SerialName("cache_id") val cacheId: String? = null,
     /** Relative URL of the thumbnail (/cache/...), null until thumbnails are made. */
     val thumb: String? = null,
@@ -86,19 +88,118 @@ data class HomeRow(
     @SerialName("see_all") val seeAll: JsonObject? = null,
 )
 
-/** GET /api/init: the libraries (other fields are ignored for now). */
+/** GET /api/init: libraries, groups and the display filter (other fields are ignored for now). */
 @Serializable
 data class InitData(
     /** library name -> its folders */
     val libraries: Map<String, List<String>> = emptyMap(),
+    /** Top-level groups and ungrouped libraries, in the owner's order. */
     @SerialName("library_order") val libraryOrder: List<String> = emptyList(),
+    /** Hidden libraries; may also hold "All Videos". */
     @SerialName("hidden_libraries") val hiddenLibraries: List<String> = emptyList(),
+    @SerialName("library_groups") val libraryGroups: Map<String, LibraryGroup> = emptyMap(),
+    /** library name -> straight / gay / bisexual / trans / lesbian / mixed */
+    @SerialName("library_types") val libraryTypes: Map<String, String> = emptyMap(),
+    /** Every type the display filter knows. */
+    @SerialName("display_types") val displayTypes: List<String> = emptyList(),
+    /** The types this viewer chose to see (all of them = no filtering). */
+    @SerialName("display_filter") val displayFilter: List<String> = emptyList(),
 ) {
     /** Library names in the order the owner set, without hidden ones. */
     val visibleLibraries: List<String>
         get() = (libraryOrder + libraries.keys.filter { it !in libraryOrder })
             .filter { it in libraries && it !in hiddenLibraries }
 }
+
+/** A group of libraries (and of other groups) in the sidebar. A group can be opened like a library. */
+@Serializable
+data class LibraryGroup(
+    /** Library names and sub-group names, in order. */
+    val libraries: List<String> = emptyList(),
+    /** The parent group's name for a sub-group; empty / null for a top-level group. */
+    val parent: String? = null,
+)
+
+/** GET /api/collections?library= */
+@Serializable
+data class CollectionList(
+    val success: Boolean = false,
+    val error: String? = null,
+    val collections: List<VideoCollection> = emptyList(),
+)
+
+/** A hand-picked ("collection") or saved-filter ("smart") collection. */
+@Serializable
+data class VideoCollection(
+    val id: Int,
+    val name: String,
+    val kind: String = "collection",
+    val description: String? = null,
+    val count: Int = 0,
+    /** Relative thumbnail URL of its cover video, or null. */
+    val cover: String? = null,
+) {
+    val isSmart: Boolean get() = kind == "smart"
+}
+
+/** GET /api/collections/{id}/items */
+@Serializable
+data class CollectionItems(
+    val success: Boolean = false,
+    val error: String? = null,
+    val collection: VideoCollection? = null,
+    val items: List<Video> = emptyList(),
+    val total: Int = 0,
+)
+
+/** GET /api/movies */
+@Serializable
+data class MovieList(
+    val success: Boolean = false,
+    val error: String? = null,
+    val movies: List<Movie> = emptyList(),
+    val total: Int = 0,
+)
+
+/** A full movie made of scenes / parts (videos). */
+@Serializable
+data class Movie(
+    val id: Int,
+    val title: String? = null,
+    /** Title with edition, as the web app shows it. */
+    val display: String? = null,
+    val year: String? = null,
+    val studio: String? = null,
+    val director: String? = null,
+    val description: String? = null,
+    /** Scenes in this library (list) / in total (detail). */
+    val count: Int = 0,
+    /** Minutes. */
+    val runtime: Double? = null,
+    val favorite: Boolean = false,
+    /** True when the cover is a real cover (poster), false when it's a scene thumbnail. */
+    @SerialName("has_cover") val hasCover: Boolean = false,
+    /** Relative URL of the cover, or null. */
+    val cover: String? = null,
+) {
+    val displayTitle: String get() = display?.takeIf { it.isNotBlank() } ?: title.orEmpty()
+}
+
+/** GET /api/movies/{id}: the movie and its scenes in order. */
+@Serializable
+data class MovieDetail(
+    val success: Boolean = false,
+    val error: String? = null,
+    val movie: Movie? = null,
+    val items: List<Video> = emptyList(),
+)
+
+/** GET /api/available_filters and /api/movies/filters: tag / site -> how many match. */
+@Serializable
+data class FilterCounts(
+    val tags: Map<String, Int> = emptyMap(),
+    val sites: Map<String, Int> = emptyMap(),
+)
 
 /** GET /api/player/streams: every way this file can be played. */
 @Serializable
