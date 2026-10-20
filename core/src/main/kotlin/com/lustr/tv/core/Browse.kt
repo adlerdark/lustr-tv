@@ -55,9 +55,14 @@ object LibraryTree {
             return SidebarNode(name, isGroup = true, depth = depth, children = children)
         }
 
+        // The server keeps only library names in library_order after a restart; like the web app
+        // (index.html: "FORCE GROUPS INTO ORDER"), top-level groups missing from it go at the end,
+        // in the order the server lists the groups.
+        val order = init.libraryOrder + groups.filter { (name, g) -> g.parent.isNullOrEmpty() && name !in init.libraryOrder }.keys
+
         val out = mutableListOf(SidebarNode(HOME, isGroup = false))
         if (ALL_VIDEOS !in hidden) out += SidebarNode(ALL_VIDEOS, isGroup = false)
-        for (item in init.libraryOrder) {
+        for (item in order) {
             val g = groups[item]
             if (g != null && g.parent.isNullOrEmpty()) {
                 group(item, 0, emptySet())?.takeUnless { filtering && it.children.isEmpty() }?.let { out += it }

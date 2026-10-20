@@ -198,6 +198,16 @@ change for this.
 
 ---
 
+## 5. Group names dropped from `library_order` at start-up (optional, small)
+
+`model.py` (load, ~line 152) does `self.library_order = [l for l in self.library_order if l in self.libraries]`,
+which removes every **group** name from the saved order when the server starts. The web app hides this
+by appending missing top-level groups at load time (`index.html`, "FORCE GROUPS INTO ORDER"), and
+the TV app now does the same, so nothing is broken — but the owner's position of the groups among
+the libraries is lost on each restart (they always end up last). Suggested: keep names that are
+either a library or a group (`if l in self.libraries or l in self.library_groups`), in both the SQLite
+and the JSON branch.
+
 ## Already fine (no change needed) – for reference
 
 - Sort by **Cast** in `/api/videos` (`sort_by=Cast`) works for libraries, groups and All Videos.

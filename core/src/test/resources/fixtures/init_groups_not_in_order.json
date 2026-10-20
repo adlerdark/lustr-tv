@@ -1,0 +1,17 @@
+{
+ "libraries": {
+  "Loose": [], "A1": [], "A2": [], "A3": [], "B1": [], "B2": [], "C1": [], "D1": [], "D2": []
+ },
+ "library_order": ["Loose", "A1", "B1", "A2", "C1", "B2", "A3", "D1", "D2"],
+ "hidden_libraries": ["All Videos"],
+ "library_groups": {
+  "GroupA": {"libraries": ["SubB", "A1", "A2", "SubC"], "parent": null, "collapsed": false},
+  "SubB": {"libraries": ["B1", "B2"], "parent": "GroupA", "collapsed": false},
+  "GroupD": {"libraries": ["D1", "D2"], "parent": null, "collapsed": false},
+  "SubC": {"libraries": ["C1"], "parent": "GroupA", "collapsed": false},
+  "GroupE": {"libraries": ["A3"], "parent": null, "collapsed": true}
+ },
+ "library_types": {"Loose": "straight", "A1": "mixed", "B1": "straight", "D1": "gay"},
+ "display_types": ["straight", "gay", "bisexual", "trans", "lesbian"],
+ "display_filter": ["straight", "gay", "bisexual", "trans", "lesbian"]
+}

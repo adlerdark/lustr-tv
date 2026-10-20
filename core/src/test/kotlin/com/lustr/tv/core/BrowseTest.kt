@@ -51,6 +51,20 @@ class BrowseTest {
     }
 
     @Test
+    fun groupsMissingFromTheOrder() = runTest {
+        // The shape of a real server after a restart: library_order holds only libraries, the groups
+        // (with "parent": null and "collapsed") aren't in it; All Videos is hidden.
+        reply("init_groups_not_in_order")
+        val tree = LibraryTree.build(client.init())
+        // like the web app: ungrouped libraries in order, then the top-level groups as the server lists them
+        assertEquals(listOf("Home", "Loose", "GroupA/", "GroupD/", "GroupE/"), names(LibraryTree.visible(tree, emptySet())))
+        assertEquals(
+            listOf("Home", "Loose", "GroupA/", "  SubB/", "    B1", "    B2", "  A1", "  A2", "  SubC/", "    C1", "GroupD/", "GroupE/"),
+            names(LibraryTree.visible(tree, setOf("GroupA", "SubB", "SubC"))),
+        )
+    }
+
+    @Test
     fun hiddenLibrariesAndDisplayFilter() {
         val init = InitData(
             libraries = mapOf("Straight" to emptyList(), "Gay" to emptyList(), "Mixed" to emptyList(), "Hidden" to emptyList(), "Loose" to emptyList()),
