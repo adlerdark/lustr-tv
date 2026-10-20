@@ -5,15 +5,16 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
-import androidx.tv.material3.SurfaceDefaults
 import com.lustr.tv.ui.LustrNavHost
 import com.lustr.tv.ui.theme.LustrTheme
 
@@ -34,13 +35,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
             LustrTheme {
-                // The Surface sets the default text colour: without it, TV Material text is black
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    shape = RectangleShape,
-                    colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-                ) {
-                    LustrNavHost(container)
+                // TV Material text is black unless told otherwise: set the default text colour here.
+                // (Not with a tv Surface: it draws through an off-screen layer, which hides the
+                // video - the player's SurfaceView shows through a hole in the window.)
+                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                        LustrNavHost(container)
+                    }
                 }
             }
         }
