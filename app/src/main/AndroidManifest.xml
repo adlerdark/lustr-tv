@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- to find the TV's own address for "Search network" -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- An Android TV app: no touchscreen needed. leanback required="false" so it also runs
          on a phone / tablet emulator for testing. -->

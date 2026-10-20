@@ -9,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.lustr.tv"
+        applicationId = "com.lstr.tv"      // neutral: the package name shows in some system screens
         minSdk = 26          // Shield TV runs Android 11 (API 30)
         targetSdk = 36
         versionCode = 1

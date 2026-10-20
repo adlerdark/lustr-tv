@@ -19,10 +19,16 @@ import com.lustr.tv.core.VideoFilter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.IOException
 import kotlin.random.Random
+
+/** Run [reload] whenever something changes what lists show (AppContainer.dataVersion, e.g. the orientation filter). */
+private fun ViewModel.reloadOnDataChange(container: AppContainer, reload: () -> Unit) {
+    viewModelScope.launch { container.dataVersion.drop(1).collect { reload() } }
+}
 
 /** The sidebar: libraries and groups from /api/init, what's open, which groups are expanded, each library's tab. */
 class BrowseViewModel(private val container: AppContainer) : ViewModel() {
@@ -62,7 +68,7 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
             } catch (e: IOException) {
                 // logged out locally either way
             }
-            container.cookieJar.clear()
+            container.forgetLogin()
             onDone()
         }
     }
@@ -86,7 +92,8 @@ class RowsViewModel(private val container: AppContainer, private val library: St
 class LibraryViewModel(private val container: AppContainer, private val library: String) : ViewModel() {
     private val seed = Random.nextInt(1, 1_000_000)          // a Random sort keeps its order between pages
 
-    private val _filter = MutableStateFlow(VideoFilter())
+    /** Starts with the default length filter from Settings (e.g. no videos under 2 minutes). */
+    private val _filter = MutableStateFlow(VideoFilter(lengths = container.settings.value.defaultLengths))
     val filter: StateFlow<VideoFilter> = _filter
 
     val pager = Pager<Video>(viewModelScope, pageSize = 48, onError = container::onError) { page, limit ->
@@ -100,6 +107,7 @@ class LibraryViewModel(private val container: AppContainer, private val library:
 
     init {
         pager.reset()
+        reloadOnDataChange(container) { pager.reset() }
     }
 
     fun setFilter(f: VideoFilter) {
@@ -134,6 +142,7 @@ class CollectionsViewModel(private val container: AppContainer, private val libr
 
     init {
         load()
+        reloadOnDataChange(container) { load(); if (_open.value != null) items.reset() }
     }
 
     fun load() {
@@ -164,6 +173,7 @@ class MoviesViewModel(private val container: AppContainer, private val library: 
 
     init {
         movies.reset()
+        reloadOnDataChange(container) { movies.reset() }
     }
 
     fun search(q: String) {

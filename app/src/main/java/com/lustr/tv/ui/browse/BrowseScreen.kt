@@ -41,7 +41,7 @@ import com.lustr.tv.ui.theme.LustrColors
 
 /** Sidebar on the left; on the right Home, or the open library / group with its tabs. */
 @Composable
-fun BrowseScreen(container: AppContainer, onPlay: (Video) -> Unit, onLoggedOut: () -> Unit) {
+fun BrowseScreen(container: AppContainer, onPlay: (Video) -> Unit, onSettings: () -> Unit, onLoggedOut: () -> Unit) {
     val vm: BrowseViewModel = viewModel { BrowseViewModel(container) }
     val tree by vm.tree.collectAsStateWithLifecycle()
     val sidebar by vm.sidebar.collectAsStateWithLifecycle()
@@ -56,6 +56,10 @@ fun BrowseScreen(container: AppContainer, onPlay: (Video) -> Unit, onLoggedOut: 
     // Start in the sidebar, on the open item
     LaunchedEffect(tree is Load.Ready) { if (tree is Load.Ready) runCatching { activeFocus.requestFocus() } }
 
+    // The sidebar follows the orientation filter (changed in Settings)
+    val dataVersion by container.dataVersion.collectAsStateWithLifecycle()
+    LaunchedEffect(dataVersion) { if (dataVersion > 0) vm.load() }
+
     Row(Modifier.fillMaxSize()) {
         Sidebar(
             tree = tree,
@@ -63,6 +67,7 @@ fun BrowseScreen(container: AppContainer, onPlay: (Video) -> Unit, onLoggedOut: 
             onClick = vm::click,
             onRetry = vm::load,
             onLogOut = { vm.logOut(onLoggedOut) },
+            onSettings = onSettings,
             activeFocus = activeFocus,
         )
         Box(

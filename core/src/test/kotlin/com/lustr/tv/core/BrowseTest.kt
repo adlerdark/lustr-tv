@@ -116,7 +116,7 @@ class BrowseTest {
         f = f.toggleLength("2400-28800").toggleLength("0-120").copy(favoritesOnly = true)
         assertEquals(mapOf("outdoor" to true, "pov" to false), f.tags)
         assertTrue(f.sites.isEmpty())
-        assertEquals(5, f.activeCount)
+        assertEquals(4, f.activeCount)                  // 2 tags + length (2 ranges count once) + favorites
 
         server.enqueue(MockResponse().setBody(fixture("videos")))
         client.videos("Studios", f, page = 2, limit = 30, seed = 7)

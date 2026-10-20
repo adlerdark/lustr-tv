@@ -17,7 +17,46 @@ data class Health(val status: String = "", val version: String = "")
 data class AuthStatus(val authenticated: Boolean = false, val username: String? = null)
 
 @Serializable
-internal data class LoginBody(val username: String, val password: String)
+internal data class LoginBody(
+    val username: String,
+    val password: String,
+    /** "tv": ask for a TV session (4 hours at most; servers without TV support ignore it). */
+    val client: String? = null,
+)
+
+/** POST /api/tv/pair/start: the code to show, and the secret id to poll with (never shown). */
+@Serializable
+data class Pairing(
+    @SerialName("pair_id") val pairId: String,
+    val code: String,
+    @SerialName("expires_in") val expiresIn: Int = 300,
+    @SerialName("poll_every") val pollEvery: Int = 2,
+)
+
+@Serializable
+internal data class PairStartBody(@SerialName("device_name") val deviceName: String)
+
+@Serializable
+internal data class PairPollBody(@SerialName("pair_id") val pairId: String)
+
+/** GET /api/settings/display-filter */
+@Serializable
+data class DisplayFilter(
+    /** The types shown. */
+    val types: List<String> = emptyList(),
+    /** Every type there is (straight, gay, bisexual, trans, lesbian). */
+    @SerialName("display_types") val displayTypes: List<String> = emptyList(),
+)
+
+@Serializable
+internal data class DisplayFilterBody(val types: List<String>)
+
+/** POST /api/tv/pair/poll: "pending", "expired" or "approved" (then the login cookie is set). */
+@Serializable
+data class PairStatus(val status: String = "expired") {
+    val approved: Boolean get() = status == "approved"
+    val expired: Boolean get() = status == "expired"
+}
 
 /** One video, as in /api/videos items, /api/home row items and /api/video. */
 @Serializable

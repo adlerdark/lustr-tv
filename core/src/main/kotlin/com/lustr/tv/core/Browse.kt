@@ -117,8 +117,8 @@ data class VideoFilter(
     /** Length ranges, e.g. "300-600" (see LengthRange). */
     val lengths: Set<String> = emptySet(),
 ) {
-    /** How many filters (not search / sort) are on, for the "Filters (3)" button. */
-    val activeCount: Int get() = tags.size + sites.size + lengths.size + (if (favoritesOnly) 1 else 0)
+    /** How many filters (not search / sort) are on, for the "Filters (3)" button. Length counts once. */
+    val activeCount: Int get() = tags.size + sites.size + (if (lengths.isNotEmpty()) 1 else 0) + (if (favoritesOnly) 1 else 0)
 
     fun cycleTag(tag: String) = copy(tags = cycle(tags, tag))
     fun cycleSite(site: String) = copy(sites = cycle(sites, site))
@@ -152,6 +152,7 @@ enum class LengthRange(val value: String, val label: String) {
 /** Sorts of the Library tab (server names), with the direction that makes sense first. */
 enum class SortOption(val value: String, val label: String, val descendingByDefault: Boolean) {
     TITLE("Title", "Title", false),
+    CAST("Cast", "Cast", false),
     RECENTLY_ADDED("Recently Added", "Recently added", true),
     DATE_CREATED("Date Created", "Date created", true),
     LENGTH("Length", "Length", true),

@@ -22,12 +22,65 @@ object Playback {
     fun tvOrder(sources: List<StreamSource>): List<StreamSource> =
         sources.filter { it.isDirect } + sources.filter { it.isHls }
 
+    /**
+     * Like [tvOrder], but starting with the quality chosen in Settings ([preferredRes]: "direct",
+     * "original", "1080", ...). If the file has no such source, the next lower HLS one is used;
+     * the rest stay as fallbacks.
+     */
+    fun order(sources: List<StreamSource>, preferredRes: String): List<StreamSource> {
+        val base = tvOrder(sources)
+        if (preferredRes == "direct") return base
+        val hls = base.filter { it.isHls }
+        val first = hls.firstOrNull { it.res == preferredRes }
+            ?: preferredRes.toIntOrNull()?.let { want -> hls.firstOrNull { (it.res.toIntOrNull() ?: Int.MAX_VALUE) <= want } }
+            ?: return base
+        return listOf(first) + base.filter { it != first }
+    }
+
     /** Where to start, in seconds: the saved resume point, unless it's at the very start or end. */
     fun startPosition(resumeAt: Double?, duration: Double): Double {
         val at = resumeAt ?: return 0.0
         if (at < MIN_RESUME_SECONDS) return 0.0
         if (duration > 0 && at / duration > COMPLETED_FRACTION) return 0.0
         return at
+    }
+}
+
+/**
+ * Left / right on the remote, without the seek bar: a press jumps [stepMs]; holding the button
+ * seeks faster the longer it's held (shown as a target, applied when the button is let go).
+ */
+class RemoteSeek(private val stepMs: Long) {
+    /** Where the seek will land, while one is building up; null when none is pending. */
+    var target: Long? = null
+        private set
+
+    /** One press (key down, no repeat): [direction] = +1 forward, -1 back. Returns the new target. */
+    fun tap(current: Long, direction: Int, duration: Long): Long =
+        move(current, direction * stepMs, duration)
+
+    /**
+     * The button is held: called for each key repeat. [heldMs] = how long it's been down,
+     * [sinceLastMs] = time since the previous call. Speed (video time per real second):
+     * 6 steps/s for the first 2 s, 18 after that, 36 after 5 s.
+     */
+    fun hold(current: Long, direction: Int, heldMs: Long, sinceLastMs: Long, duration: Long): Long {
+        val stepsPerSecond = when {
+            heldMs < 2_000 -> 6
+            heldMs < 5_000 -> 18
+            else -> 36
+        }
+        val delta = stepMs * stepsPerSecond * sinceLastMs.coerceIn(0, 500) / 1000
+        return move(current, direction * delta, duration)
+    }
+
+    /** The seek to apply now (and forget); null if none is pending. */
+    fun take(): Long? = target.also { target = null }
+
+    private fun move(current: Long, delta: Long, duration: Long): Long {
+        val from = target ?: current
+        val max = if (duration > 0) duration - 1_000 else Long.MAX_VALUE
+        return (from + delta).coerceIn(0, max.coerceAtLeast(0)).also { target = it }
     }
 }
 

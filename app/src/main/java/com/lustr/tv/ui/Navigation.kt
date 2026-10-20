@@ -16,20 +16,26 @@ import com.lustr.tv.ui.browse.BrowseScreen
 import com.lustr.tv.ui.login.LoginScreen
 import com.lustr.tv.ui.login.ServerScreen
 import com.lustr.tv.ui.player.PlayerScreen
+import com.lustr.tv.ui.settings.SettingsScreen
 
 private object Routes {
     const val SERVER = "server"
     const val LOGIN = "login"
     const val BROWSE = "browse"
+    const val SETTINGS = "settings"
     const val PLAYER = "player?path={path}"
     fun player(path: String) = "player?path=${Uri.encode(path)}"
 }
 
-/** Server -> Login -> Browse (sidebar + tabs) -> Player. Any screen goes back to Login when the session ends. */
+/**
+ * Server -> Login -> Browse (sidebar + tabs) -> Player / Settings.
+ * The server address is remembered, the login isn't: the app always opens on Login.
+ * Any screen goes back to Login when the session ends.
+ */
 @Composable
 fun LustrNavHost(container: AppContainer) {
     val nav = rememberNavController()
-    val start = if (container.serverUrl == null) Routes.SERVER else Routes.BROWSE
+    val start = if (container.serverUrl == null) Routes.SERVER else Routes.LOGIN
 
     val sessionEnded by container.sessionEnded.collectAsStateWithLifecycle()
     LaunchedEffect(sessionEnded) {
@@ -41,7 +47,7 @@ fun LustrNavHost(container: AppContainer) {
 
     NavHost(navController = nav, startDestination = start) {
         composable(Routes.SERVER) {
-            ServerScreen(container, onConnected = { loggedIn -> nav.resetTo(if (loggedIn) Routes.BROWSE else Routes.LOGIN) })
+            ServerScreen(container, onConnected = { nav.resetTo(Routes.LOGIN) })
         }
         composable(Routes.LOGIN) {
             LoginScreen(
@@ -54,6 +60,15 @@ fun LustrNavHost(container: AppContainer) {
             BrowseScreen(
                 container,
                 onPlay = { video -> nav.navigate(Routes.player(video.path)) },
+                onSettings = { nav.navigate(Routes.SETTINGS) },
+                onLoggedOut = { nav.resetTo(Routes.LOGIN) },
+            )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
+                container,
+                onBack = { nav.popBackStack() },
+                onChangeServer = { container.forgetLogin(); nav.resetTo(Routes.SERVER) },
                 onLoggedOut = { nav.resetTo(Routes.LOGIN) },
             )
         }
@@ -64,7 +79,6 @@ fun LustrNavHost(container: AppContainer) {
             PlayerScreen(
                 container,
                 path = entry.arguments?.getString("path").orEmpty(),
-                onNeedLogin = { nav.resetTo(Routes.LOGIN) },
                 onExit = { nav.popBackStack() },
             )
         }

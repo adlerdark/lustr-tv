@@ -89,6 +89,23 @@ class LiveServerTest {
         }
         val short = client.videos(ALL_VIDEOS, VideoFilter().toggleLength(LengthRange.UNDER_2.value), limit = 1).total
         println("under 2 min: $short")
+        val byCast = client.videos(ALL_VIDEOS, VideoFilter(sortBy = SortOption.CAST.value), limit = 50).items
+        println("by cast: ${byCast.map { it.cast.firstOrNull() ?: "-" }}")
+
+        val filter = client.displayFilter()
+        println("display filter: ${filter.types} of ${filter.displayTypes}")
+        assertTrue(filter.displayTypes.isNotEmpty())
+        client.setDisplayFilter(filter.types)                // unchanged, just proves the call works
+
+        // code login: works on servers with docs/SERVER_CHANGES.md section 1, a clean 404 on older ones
+        try {
+            val p = client.pairStart("Test TV")
+            println("pairing supported, code ${p.code}")
+            assertEquals("pending", client.pairPoll(p.pairId).status)
+        } catch (e: LustrException.ServerError) {
+            println("pairing not supported by this server (HTTP ${e.code})")
+            assertTrue(e.notSupported)
+        }
         client.logout()
     }
 

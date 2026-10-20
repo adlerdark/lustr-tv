@@ -23,7 +23,10 @@ sealed class LustrException(message: String) : IOException(message) {
     class TooManyAttempts(message: String, val retryAfterSeconds: Int?) : LustrException(message)
 
     /** Any other error status, or a {"success": false} reply. */
-    class ServerError(message: String, val code: Int) : LustrException(message)
+    class ServerError(message: String, val code: Int) : LustrException(message) {
+        /** The server doesn't have this endpoint (an older lustr). */
+        val notSupported: Boolean get() = code == 404 || code == 405
+    }
 }
 
 /**
@@ -41,9 +44,27 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
 
     suspend fun authStatus(): AuthStatus = get(url("api/check_auth"))
 
-    /** Logs in; the session cookie lands in the cookie jar. */
-    suspend fun login(username: String, password: String) {
-        post<JsonObject>(url("api/login"), json.encodeToString(LoginBody.serializer(), LoginBody(username, password)))
+    /** Logs in; the session cookie lands in the cookie jar. [client] = "tv" asks for a 4-hour TV session. */
+    suspend fun login(username: String, password: String, client: String? = null) {
+        post<JsonObject>(url("api/login"), json.encodeToString(LoginBody.serializer(), LoginBody(username, password, client)))
+    }
+
+    /**
+     * Start a code login: show [Pairing.code] and poll with [pairPoll] until it's approved in the web app.
+     * A server without TV login answers 404 ([LustrException.ServerError.notSupported]).
+     */
+    suspend fun pairStart(deviceName: String): Pairing =
+        post(url("api/tv/pair/start"), json.encodeToString(PairStartBody.serializer(), PairStartBody(deviceName)))
+
+    /** "approved" also sets the login cookie. */
+    suspend fun pairPoll(pairId: String): PairStatus =
+        post(url("api/tv/pair/poll"), json.encodeToString(PairPollBody.serializer(), PairPollBody(pairId)))
+
+    /** The server's display filter for this account: the orientation types shown, out of all of them. */
+    suspend fun displayFilter(): DisplayFilter = get(url("api/settings/display-filter"))
+
+    suspend fun setDisplayFilter(types: List<String>) {
+        post<JsonObject>(url("api/settings/display-filter"), json.encodeToString(DisplayFilterBody.serializer(), DisplayFilterBody(types)))
     }
 
     suspend fun logout() {

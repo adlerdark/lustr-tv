@@ -48,6 +48,7 @@ fun Sidebar(
     onClick: (SidebarNode) -> Unit,
     onRetry: () -> Unit,
     onLogOut: () -> Unit,
+    onSettings: () -> Unit,
     activeFocus: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
@@ -89,7 +90,10 @@ fun Sidebar(
             }
         }
         if (tree !is Load.Ready) Spacer(Modifier.weight(1f))
-        OutlinedButton(onClick = onLogOut, modifier = Modifier.padding(start = 24.dp, top = 12.dp)) { Text("Log out") }
+        Row(Modifier.padding(start = 16.dp, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onSettings) { Text("Settings") }
+            OutlinedButton(onClick = onLogOut) { Text("Log out") }
+        }
     }
 }
 

@@ -50,7 +50,7 @@ import com.lustr.tv.ui.theme.LustrColors
 
 /** A line in a dialog list: [marker] on the left (✓, ✕, ↑ ...), [count] on the right. */
 @Composable
-private fun ChoiceRow(
+fun ChoiceRow(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -81,7 +81,7 @@ private fun ChoiceRow(
 
 /** A dark panel; [side] = docked to the right edge (filters), otherwise centred. */
 @Composable
-private fun Panel(onDismiss: () -> Unit, side: Boolean = false, content: @Composable () -> Unit) {
+fun Panel(onDismiss: () -> Unit, side: Boolean = false, content: @Composable () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize(), contentAlignment = if (side) Alignment.CenterEnd else Alignment.Center) {
             // a dialog is its own window, outside the app's Surface: this one sets the text colour again

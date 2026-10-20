@@ -53,11 +53,14 @@ fun LustrTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = colors, content = content)
 }
 
-/** "lustr" as on the web app's header and login page. */
+/** Before login the app calls itself "lstr" (nothing on screen hints at what it is). */
+const val NEUTRAL_NAME = "lstr"
+
+/** The logo in the web app's font: [text] = "lustr" once logged in, [NEUTRAL_NAME] before. */
 @Composable
-fun LustrLogo(modifier: Modifier = Modifier, size: TextUnit = 44.sp) {
+fun LustrLogo(modifier: Modifier = Modifier, size: TextUnit = 44.sp, text: String = "lustr") {
     Text(
-        "lustr",
+        text,
         modifier = modifier,
         color = LustrColors.primarySoft,
         fontFamily = Tangerine,
