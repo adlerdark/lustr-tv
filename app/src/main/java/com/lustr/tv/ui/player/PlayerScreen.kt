@@ -306,7 +306,6 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
 
     // 4. The remote: seeking with ◀ / ▶ (and ⏪ / ⏩), play / pause, showing the controls
     var applyJob by remember { mutableStateOf<Job?>(null) }
-    var lastRepeatAt by remember { mutableLongStateOf(0L) }
     DisposableEffect(Unit) {
         container.keyInterceptor = handler@{ e ->
             lastInput = System.currentTimeMillis()
@@ -318,13 +317,9 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
                 val dir = if (code == KeyEvent.KEYCODE_DPAD_RIGHT || code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) 1 else -1
                 when (e.action) {
                     KeyEvent.ACTION_DOWN -> {
+                        // first press and every repeat: RemoteSeek speeds up the longer the seeking goes on
                         applyJob?.cancel()
-                        seekTarget = if (e.repeatCount == 0) {
-                            seek.tap(player.currentPosition, dir, durationMs())
-                        } else {
-                            seek.hold(player.currentPosition, dir, e.eventTime - e.downTime, e.eventTime - lastRepeatAt, durationMs())
-                        }
-                        lastRepeatAt = e.eventTime
+                        seekTarget = seek.press(e.eventTime, player.currentPosition, dir, durationMs())
                     }
                     KeyEvent.ACTION_UP -> {
                         applyJob = scope.launch {

@@ -135,7 +135,11 @@ data class VideoFilter(
     fun cycleTag(tag: String) = copy(tags = cycle(tags, tag))
     fun cycleSite(site: String) = copy(sites = cycle(sites, site))
     fun toggleLength(range: String) = copy(lengths = if (range in lengths) lengths - range else lengths + range)
-    fun clearFilters() = copy(tags = emptyMap(), sites = emptyMap(), lengths = emptySet(), favoritesOnly = false)
+    /** Clears tags, sites and favorites; the length (time) filter stays, as do search and sort. */
+    fun clearFilters() = copy(tags = emptyMap(), sites = emptyMap(), favoritesOnly = false)
+
+    /** Something "Clear" would remove: a search, tags, sites or favorites only (not the length filter). */
+    val clearable: Boolean get() = query.isNotBlank() || tags.isNotEmpty() || sites.isNotEmpty() || favoritesOnly
 
     internal fun include(map: Map<String, Boolean>) = map.filterValues { it }.keys.joinToString(",").ifEmpty { null }
     internal fun exclude(map: Map<String, Boolean>) = map.filterValues { !it }.keys.joinToString(",").ifEmpty { null }

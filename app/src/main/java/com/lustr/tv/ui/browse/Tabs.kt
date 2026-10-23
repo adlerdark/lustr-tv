@@ -32,7 +32,6 @@ import com.lustr.tv.core.Letters
 import com.lustr.tv.core.MovieDetail
 import com.lustr.tv.core.MovieSort
 import com.lustr.tv.core.PagedState
-import com.lustr.tv.core.VideoFilter
 import com.lustr.tv.core.after
 import com.lustr.tv.core.SortOption
 import com.lustr.tv.core.Video
@@ -94,7 +93,7 @@ fun LibraryTabContent(container: AppContainer, library: String, imageUrl: ImageU
             OutlinedButton(onClick = { vm.loadCounts(); dialog = "filters" }) {
                 Text(if (filter.activeCount > 0) "Filters (${filter.activeCount})" else "Filters")
             }
-            if (filter.activeCount > 0 || filter.query.isNotBlank()) {
+            if (filter.clearable) {   // keeps the length filter
                 OutlinedButton(onClick = { vm.setFilter(filter.clearFilters().copy(query = "")) }) { Text("Clear") }
             }
             Spacer(Modifier.weight(1f))
@@ -217,7 +216,7 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
                 OutlinedButton(onClick = { vm.loadCounts(); dialog = "filters" }) {
                     Text(if (filter.activeCount > 0) "Filters (${filter.activeCount})" else "Filters")
                 }
-                if (filtered) OutlinedButton(onClick = { vm.setFilter(VideoFilter()) }) { Text("Clear") }
+                if (filter.clearable) OutlinedButton(onClick = { vm.setFilter(filter.clearFilters().copy(query = "")) }) { Text("Clear") }
                 Spacer(Modifier.weight(1f))
                 if (movies.total >= 0) Text("${movies.total} movies", color = LustrColors.textSecondary)
             }

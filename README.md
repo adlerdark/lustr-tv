@@ -44,7 +44,8 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
     **#–Z bar** on the right to jump to a letter. **Search** (with lustr's search syntax, e.g.
     `cast:jane*`), **Sort** (pick the same sort again to reverse it), and **Filters**: favorites only,
     length, and tags / sites with counts – press once for ✓ (must have), again for ✕ (must not have),
-    again to clear.
+    again to clear. The tags / sites that are on are listed at the top of Filters, the rest by
+    count. **Clear** removes the search, tags, sites and favorites but keeps the length filter.
   - **Collections** – hand-picked and smart collections; open one to see its videos.
   - **Movies** – posters (upright, 2:3) with Search, Sort (title, year, most scenes, recently added,
     favorites first), Filters (favorites, tags and sites with counts) and, sorted by title, the #–Z
@@ -62,7 +63,8 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
   automatically. It resumes where you left off, and saves progress every 10 seconds and when you
   leave, so Continue Watching and Play History stay in step with the web app. On the remote:
   - **◀ / ▶** (controls hidden, or on the progress bar): jump back / forward 10 s; **hold** to seek
-    faster and faster – it jumps when you let go. ⏪ / ⏩ do the same. **Play/Pause** any time.
+    faster and faster (10 s steps, then 30 s after 1.5 s, 1 min after 4 s, 2 min after 8 s) – it
+    jumps when you let go. ⏪ / ⏩ do the same. **Play/Pause** any time.
   - **Chapters**: with the controls showing, **▲ from the progress bar** opens the video's chapters /
     markers as cards with a picture; OK jumps there. (Pictures are the nearest seek-bar preview; the
     exact frame once the server has `docs/SERVER_CHANGES.md` §6.)

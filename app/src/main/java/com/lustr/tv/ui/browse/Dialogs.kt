@@ -163,11 +163,16 @@ fun FilterDialog(
     showLength: Boolean = true,
 ) {
     val focus = remember { FocusRequester() }
+    // The tags / sites that were on when the dialog opened go at the top. They stay put while it's
+    // open (turning one on or off doesn't move rows around under the cursor); next time, the new ones are up there.
+    val pinnedTags = remember { filter.tags.keys.toList() }
+    val pinnedSites = remember { filter.sites.keys.toList() }
     Panel(onDismiss, side = true) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
                     SectionTitle("Filters", Modifier.weight(1f))
+                    // the length filter stays (it's usually the default from Settings)
                     OutlinedButton(onClick = { onChange(filter.clearFilters()) }) { Text("Clear all") }
                 }
             }
@@ -180,14 +185,16 @@ fun FilterDialog(
                     modifier = Modifier.focusRequester(focus),
                 )
             }
+            if (pinnedTags.isNotEmpty()) tagRows("Active tags", pinnedTags, counts?.tags, filter.tags) { onChange(filter.cycleTag(it)) }
+            if (pinnedSites.isNotEmpty()) tagRows("Active sites", pinnedSites, counts?.sites, filter.sites) { onChange(filter.cycleSite(it)) }
             if (showLength) {
                 item { Heading("Length") }
                 items(LengthRange.entries) { range ->
                     ChoiceRow(range.label, onClick = { onChange(filter.toggleLength(range.value)) }, marker = if (range.value in filter.lengths) "✓" else "")
                 }
             }
-            tagSection("Tags", counts?.tags, filter.tags, counts == null) { onChange(filter.cycleTag(it)) }
-            tagSection("Sites", counts?.sites, filter.sites, counts == null) { onChange(filter.cycleSite(it)) }
+            tagSection("Tags", counts?.tags, filter.tags, pinnedTags, counts == null) { onChange(filter.cycleTag(it)) }
+            tagSection("Sites", counts?.sites, filter.sites, pinnedSites, counts == null) { onChange(filter.cycleSite(it)) }
             item { Spacer(Modifier.padding(bottom = 24.dp)) }
         }
     }
@@ -198,15 +205,30 @@ private fun LazyListScope.tagSection(
     title: String,
     counts: Map<String, Int>?,
     chosen: Map<String, Boolean>,
+    pinned: List<String>,
     loading: Boolean,
     onCycle: (String) -> Unit,
 ) {
-    item { Heading(title) }
-    // chosen ones first (they may have no count any more), then the rest by how many videos have them
-    val names = chosen.keys.toList() + (counts.orEmpty().entries.sortedByDescending { it.value }.map { it.key }.filter { it !in chosen })
+    // by how many videos have them; the pinned ones are in "Active" at the top. One turned on here
+    // that has no count any more (nothing left has it with the other filters) stays listed.
+    val byCount = counts.orEmpty().entries.sortedByDescending { it.value }.map { it.key }
+    val names = (byCount + chosen.keys.filter { it !in byCount }).filter { it !in pinned }
+    if (names.isEmpty() && pinned.isNotEmpty()) return       // everything is up in "Active"
+    tagRows(title, names, counts, chosen, onCycle)
     if (names.isEmpty()) {
         item { Text(if (loading) "Loading…" else "None", color = LustrColors.textSecondary, modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)) }
     }
+}
+
+/** A heading, then a row per name with its ✓ / ✕ and count. */
+private fun LazyListScope.tagRows(
+    title: String,
+    names: List<String>,
+    counts: Map<String, Int>?,
+    chosen: Map<String, Boolean>,
+    onCycle: (String) -> Unit,
+) {
+    item { Heading(title) }
     items(names, key = { "$title:$it" }) { name ->
         val state = chosen[name]
         ChoiceRow(

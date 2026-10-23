@@ -147,8 +147,12 @@ class BrowseTest {
         assertEquals("2", url.queryParameter("page"))
         assertEquals("7", url.queryParameter("seed"))
 
-        assertEquals(0, f.clearFilters().activeCount)
-        assertEquals("cast:jane*", f.clearFilters().query)
+        val cleared = f.clearFilters()
+        assertEquals(1, cleared.activeCount)                // the length filter stays
+        assertEquals(setOf("0-120", "2400-28800"), cleared.lengths)
+        assertEquals("cast:jane*", cleared.query)
+        assertTrue(cleared.clearable)                        // the search is still there
+        assertFalse(cleared.copy(query = "").clearable)      // only the length filter left: nothing to clear
     }
 
     @Test

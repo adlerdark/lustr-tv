@@ -47,32 +47,46 @@ object Playback {
 }
 
 /**
- * Left / right on the remote, without the seek bar: a press jumps [stepMs]; holding the button
- * seeks faster the longer it's held (shown as a target, applied when the button is let go).
+ * Left / right on the remote, without the seek bar. A press jumps [stepMs]; keeping on (holding
+ * the button, or pressing again within [BURST_GAP_MS]) jumps further the longer it goes on:
+ * 1x the step for 1.5 s, then 3x, 6x after 4 s and 12x after 8 s (10 s -> 30 s -> 1 min -> 2 min),
+ * at most one jump every [MIN_INTERVAL_MS] - so the speed is the same whatever rate the remote
+ * repeats the key at (the Shield remote and a keyboard differ). The target is shown while it
+ * builds up and applied with [take].
  */
 class RemoteSeek(private val stepMs: Long) {
     /** Where the seek will land, while one is building up; null when none is pending. */
     var target: Long? = null
         private set
 
-    /** One press (key down, no repeat): [direction] = +1 forward, -1 back. Returns the new target. */
-    fun tap(current: Long, direction: Int, duration: Long): Long =
-        move(current, direction * stepMs, duration)
+    private var burstStart = 0L
+    private var lastPress = Long.MIN_VALUE
+    private var lastMove = Long.MIN_VALUE
+    private var lastDirection = 0
 
-    /**
-     * The button is held: called for each key repeat. [heldMs] = how long it's been down,
-     * [sinceLastMs] = time since the previous call. Speed (video time per real second):
-     * 6 steps/s for the first 2 s, 18 after that, 36 after 5 s.
-     */
-    fun hold(current: Long, direction: Int, heldMs: Long, sinceLastMs: Long, duration: Long): Long {
-        val stepsPerSecond = when {
-            heldMs < 2_000 -> 6
-            heldMs < 5_000 -> 18
-            else -> 36
+    /** A key-down (first or repeated) at [now] ms: [direction] = +1 forward, -1 back. Returns the target. */
+    fun press(now: Long, current: Long, direction: Int, duration: Long): Long {
+        val newBurst = lastPress == Long.MIN_VALUE || now - lastPress > BURST_GAP_MS || direction != lastDirection
+        if (newBurst) {
+            burstStart = now
+            lastMove = Long.MIN_VALUE
         }
-        val delta = stepMs * stepsPerSecond * sinceLastMs.coerceIn(0, 500) / 1000
-        return move(current, direction * delta, duration)
+        lastPress = now
+        lastDirection = direction
+        if (!newBurst && now - lastMove < MIN_INTERVAL_MS) return target ?: current
+        lastMove = now
+        val held = now - burstStart
+        val factor = when {
+            held < 1_500 -> 1
+            held < 4_000 -> 3
+            held < 8_000 -> 6
+            else -> 12
+        }
+        return move(current, direction * stepMs * factor, duration)
     }
+
+    /** One plain step (the -/+ buttons). */
+    fun tap(current: Long, direction: Int, duration: Long): Long = move(current, direction * stepMs, duration)
 
     /** The seek to apply now (and forget); null if none is pending. */
     fun take(): Long? = target.also { target = null }
@@ -81,6 +95,12 @@ class RemoteSeek(private val stepMs: Long) {
         val from = target ?: current
         val max = if (duration > 0) duration - 1_000 else Long.MAX_VALUE
         return (from + delta).coerceIn(0, max.coerceAtLeast(0)).also { target = it }
+    }
+
+    companion object {
+        /** Presses closer together than this are one seek (covers the remote's first repeat delay). */
+        const val BURST_GAP_MS = 700L
+        const val MIN_INTERVAL_MS = 150L
     }
 }
 

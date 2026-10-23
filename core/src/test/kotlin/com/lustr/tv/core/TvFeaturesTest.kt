@@ -159,12 +159,48 @@ class TvFeaturesTest {
     @Test
     fun remoteSeekHoldSpeedsUp() {
         val seek = RemoteSeek(stepMs = 10_000)
-        // 100 ms of holding: 6 steps/s at first -> 6 s, later 18 steps/s -> 18 s, then 36 -> 36 s
-        assertEquals(106_000, seek.hold(100_000, 1, heldMs = 500, sinceLastMs = 100, duration = 3_600_000))
-        assertEquals(124_000, seek.hold(100_000, 1, heldMs = 3_000, sinceLastMs = 100, duration = 3_600_000))
-        assertEquals(160_000, seek.hold(100_000, 1, heldMs = 6_000, sinceLastMs = 100, duration = 3_600_000))
-        assertEquals(124_000, seek.hold(100_000, -1, heldMs = 6_000, sinceLastMs = 100, duration = 3_600_000))
-        assertEquals(124_000L, seek.take())
+        val long = 10 * 3_600_000L                           // long enough not to reach the end
+        // held: a key-down every 50 ms (like Android's key repeat) from t = 0
+        var target = 0L
+        val jumps = mutableListOf<Long>()
+        var t = 0L
+        while (t <= 10_000) {
+            val before = seek.target ?: 0L
+            target = seek.press(t, current = 0, direction = 1, duration = long)
+            if (target != before) jumps += target - before
+            t += 50
+        }
+        // 10 s jumps first, then 30 s, 1 min, 2 min; at most one jump per 150 ms (not one per repeat)
+        assertEquals(listOf(10_000L, 30_000L, 60_000L, 120_000L), jumps.distinct())
+        assertTrue(jumps.size in 60..70)
+        assertEquals(target, seek.take())
+    }
+
+    @Test
+    fun remoteSeekSameSpeedWhateverTheRepeatRate() {
+        // a keyboard sending a down every 30 ms ends up where a remote at 100 ms does
+        fun after(stepEveryMs: Long): Long {
+            val seek = RemoteSeek(stepMs = 10_000)
+            var t = 0L
+            while (t <= 3_000) {
+                seek.press(t, 0, 1, 3_600_000)
+                t += stepEveryMs
+            }
+            return seek.take()!!
+        }
+        val fast = after(30)
+        val slow = after(150)
+        assertTrue("fast $fast slow $slow", kotlin.math.abs(fast - slow) <= 60_000)
+    }
+
+    @Test
+    fun remoteSeekNewBurstAfterAPauseOrTurn() {
+        val seek = RemoteSeek(stepMs = 10_000)
+        seek.press(0, 100_000, 1, 3_600_000)                  // 110 s
+        seek.press(2_000, 100_000, 1, 3_600_000)              // a separate press later: 10 s again, from the target
+        assertEquals(120_000L, seek.target)
+        seek.press(2_100, 100_000, -1, 3_600_000)             // turning round: a new seek, 10 s back
+        assertEquals(110_000L, seek.take())
     }
 
     @Test
