@@ -101,7 +101,10 @@ fun BrowseScreen(
                 onSearch = { searching = true },
                 activeFocus = activeFocus,
             )
-        } else {
+        }
+        // The strip stays until focus has moved onto the opened sidebar: removing it while it
+        // holds focus would send focus into the content, which tucks the sidebar away again.
+        if (!sidebarOpen || focusSidebar) {
             SidebarRail(onReached = ::showSidebar)
         }
         Box(

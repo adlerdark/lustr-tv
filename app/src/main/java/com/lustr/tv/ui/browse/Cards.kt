@@ -125,7 +125,7 @@ fun VideoCard(video: Video, imageUrl: ImageUrl, onClick: () -> Unit, modifier: M
         imageUrl = video.thumb?.let(imageUrl),
         onClick = onClick,
         modifier = modifier,
-        subtitle = if (label != null) video.displayTitle else (video.cast.take(2) + video.site.take(1)).joinToString(" · "),
+        subtitle = (video.cast.take(2) + video.site.take(1)).joinToString(" · "),     // also under "Scene 2" in a movie
         onLongClick = actions?.let { a -> { a.openMenu(video) } },
     ) {
         if (actions?.isFavorite(video) ?: video.isFavorite) {
