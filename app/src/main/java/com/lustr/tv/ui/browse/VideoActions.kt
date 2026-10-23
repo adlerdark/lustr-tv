@@ -41,6 +41,10 @@ import kotlinx.coroutines.launch
 class VideoActions(
     val openMenu: (Video) -> Unit,
     val isFavorite: (Video) -> Boolean,
+    /** Moving previews on the selected card (Settings). */
+    val animatedPreviews: () -> Boolean = { false },
+    /** True (once) when focus should come back to this video's card: we've just come back from it. */
+    val claimFocus: (Video) -> Boolean = { false },
 )
 
 /** Provided around all screens by [VideoActionsHost]; VideoCard uses it for long presses and the ★. */
@@ -63,6 +67,8 @@ fun VideoActionsHost(
         VideoActions(
             openMenu = { menuFor = it },
             isFavorite = { v -> container.videoFavorites[v.path] ?: v.isFavorite },
+            animatedPreviews = { container.settings.value.animatedPreviews },
+            claimFocus = { v -> (container.returnFocusTo == v.path).also { if (it) container.returnFocusTo = null } },
         )
     }
     CompositionLocalProvider(LocalVideoActions provides actions) { content() }
@@ -95,7 +101,8 @@ private fun VideoMenu(
     val first = remember { FocusRequester() }
     var error by remember { mutableStateOf<String?>(null) }
     Panel(onDismiss) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // opened by holding OK: the rest of that press (repeats, letting go) mustn't press "Play"
+        Column(Modifier.ignoreHeldOk(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             SectionTitle(video.displayTitle, Modifier.padding(bottom = 8.dp))
             ChoiceRow("Play", onClick = onPlay, marker = "▶", modifier = Modifier.focusRequester(first))
             ChoiceRow(

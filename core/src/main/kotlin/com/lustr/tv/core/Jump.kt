@@ -81,3 +81,20 @@ object SpriteSheet {
     internal fun seconds(text: String): Double =
         text.split(':').fold(0.0) { acc, part -> acc * 60 + (part.toDoubleOrNull() ?: 0.0) }
 }
+
+/**
+ * The moving preview of a focused card, like the web app's hover (index.html: startHover / getThumb):
+ * the frames thumb_0 … thumb_7.webp in the video's cache folder, one every [FRAME_MS].
+ */
+object HoverPreview {
+    const val FRAMES = 8
+    const val FRAME_MS = 600L
+
+    /** Relative URLs of the frames (with the card picture's ?v=, so rebuilt frames aren't stale); empty without a cache folder. */
+    fun frames(video: Video): List<String> {
+        val id = video.cacheId?.takeIf { it.isNotBlank() } ?: return emptyList()
+        if (video.thumb.isNullOrBlank()) return emptyList()            // no thumbnails made yet
+        val version = Regex("""\?v=\d+""").find(video.thumb)?.value.orEmpty()
+        return List(FRAMES) { "/cache/$id/thumb_$it.webp$version" }
+    }
+}

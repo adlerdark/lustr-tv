@@ -32,6 +32,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -45,13 +48,22 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import com.lustr.tv.core.HoverPreview
 import com.lustr.tv.core.HomeRow
 import com.lustr.tv.core.LetterIndex
 import com.lustr.tv.core.Letters
 import com.lustr.tv.core.PagedState
 import com.lustr.tv.core.Video
 import com.lustr.tv.ui.theme.LustrColors
+import kotlinx.coroutines.delay
+
+/** How long a card has to stay selected before its preview starts moving. */
+private const val PREVIEW_AFTER_MS = 800L
 
 /** Space kept free at the content's right and bottom edges (TV overscan). */
 val EDGE = 40.dp
@@ -61,7 +73,8 @@ typealias ImageUrl = (String) -> String
 
 /**
  * A picture card (16:9, or [aspect], e.g. 2:3 for posters) with a title and a small line under it.
- * Grows when focused (Card's default); [onLongClick] = holding OK.
+ * Grows when focused (Card's default); [onLongClick] = holding OK. With [previewFrames], resting on
+ * the card plays through them (the web app's hover preview).
  */
 @Composable
 fun PictureCard(
@@ -73,10 +86,38 @@ fun PictureCard(
     imageFit: ContentScale = ContentScale.Crop,
     aspect: Float = 16f / 9f,
     onLongClick: (() -> Unit)? = null,
+    previewFrames: List<String> = emptyList(),
+    focusRequester: FocusRequester? = null,
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
+    var focused by remember { mutableStateOf(false) }
+    var frame by remember { mutableStateOf<String?>(null) }
+    val context = LocalPlatformContext.current
+    LaunchedEffect(focused, previewFrames) {
+        frame = null
+        if (!focused || previewFrames.isEmpty()) return@LaunchedEffect
+        delay(PREVIEW_AFTER_MS)                       // cards you only pass over load nothing
+        // load them all first (no blank flashes between frames); missing ones are left out
+        val loader = SingletonImageLoader.get(context)
+        val ready = previewFrames.filter { loader.execute(ImageRequest.Builder(context).data(it).build()) is SuccessResult }
+        if (ready.size < 2) return@LaunchedEffect
+        var i = 0
+        while (true) {
+            frame = ready[i]
+            delay(HoverPreview.FRAME_MS)
+            i = (i + 1) % ready.size
+        }
+    }
     Column(modifier) {
-        Card(onClick = onClick, onLongClick = onLongClick, modifier = Modifier.fillMaxWidth().aspectRatio(aspect)) {
+        Card(
+            onClick = onClick,
+            onLongClick = onLongClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(aspect)
+                .let { m -> focusRequester?.let { m.focusRequester(it) } ?: m }
+                .onFocusChanged { focused = it.isFocused },
+        ) {
             Box(Modifier.fillMaxSize().background(LustrColors.surfaceElevated)) {
                 // the initial shows until the picture loads, and stays when there is none (e.g. a 404)
                 Text(
@@ -88,6 +129,7 @@ fun PictureCard(
                 if (imageUrl != null) {
                     AsyncImage(model = imageUrl, contentDescription = null, contentScale = imageFit, modifier = Modifier.fillMaxSize())
                 }
+                frame?.let { AsyncImage(model = it, contentDescription = null, contentScale = imageFit, modifier = Modifier.fillMaxSize()) }
                 overlay()
             }
         }
@@ -120,6 +162,11 @@ fun PictureCard(
 @Composable
 fun VideoCard(video: Video, imageUrl: ImageUrl, onClick: () -> Unit, modifier: Modifier = Modifier, label: String? = null) {
     val actions = LocalVideoActions.current
+    val focus = remember { FocusRequester() }
+    // back from this video (player, Video info): the focus returns to its card
+    LaunchedEffect(video.path) {
+        if (actions?.claimFocus?.invoke(video) == true) runCatching { focus.requestFocus() }
+    }
     PictureCard(
         title = label ?: video.displayTitle,
         imageUrl = video.thumb?.let(imageUrl),
@@ -127,6 +174,8 @@ fun VideoCard(video: Video, imageUrl: ImageUrl, onClick: () -> Unit, modifier: M
         modifier = modifier,
         subtitle = (video.cast.take(2) + video.site.take(1)).joinToString(" · "),     // also under "Scene 2" in a movie
         onLongClick = actions?.let { a -> { a.openMenu(video) } },
+        previewFrames = if (actions?.animatedPreviews?.invoke() == true) HoverPreview.frames(video).map(imageUrl) else emptyList(),
+        focusRequester = focus,
     ) {
         if (actions?.isFavorite(video) ?: video.isFavorite) {
             Text("★", color = LustrColors.favorite, fontSize = 18.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))

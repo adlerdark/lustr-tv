@@ -1,5 +1,7 @@
 package com.lustr.tv.ui.browse
 
+import android.view.KeyEvent
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,9 +27,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,6 +84,25 @@ fun ChoiceRow(
 }
 
 /** A dark panel; [side] = docked to the right edge (filters), otherwise centred. */
+/**
+ * For a window opened by holding OK (a long press): the rest of that press – its repeats and
+ * letting go – is swallowed, so it doesn't press whatever has focus in the window. The next real
+ * press of OK works as usual.
+ */
+fun Modifier.ignoreHeldOk(): Modifier = composed {
+    var settled by remember { mutableStateOf(false) }
+    onPreviewKeyEvent { e ->
+        val k = e.nativeKeyEvent
+        val ok = k.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || k.keyCode == KeyEvent.KEYCODE_ENTER || k.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
+        when {
+            !ok || settled -> false
+            k.action == KeyEvent.ACTION_UP -> { settled = true; true }          // letting go of the long press
+            k.repeatCount > 0 -> true                                          // still held
+            else -> { settled = true; false }                                  // a new press: let it through
+        }
+    }
+}
+
 @Composable
 fun Panel(onDismiss: () -> Unit, side: Boolean = false, content: @Composable () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {

@@ -2,6 +2,7 @@ package com.lustr.tv.ui.browse
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -61,9 +63,24 @@ fun BrowseScreen(
     var contentHasFocus by remember { mutableStateOf(false) }
     var searching by remember { mutableStateOf(false) }
 
-    // The sidebar tucks itself away while you're in the content, and comes back when you go left
-    var sidebarOpen by remember { mutableStateOf(true) }
-    var focusSidebar by remember { mutableStateOf(true) }
+    // The sidebar tucks itself away while you're in the content, and comes back when you go left.
+    // Back from a video (or a cast page) it stays away: the focus goes back into the content.
+    val returning = remember { container.returnFocusTo != null }
+    var sidebarOpen by remember { mutableStateOf(!returning) }
+    var focusSidebar by remember { mutableStateOf(!returning) }
+    val contentFocus = remember { FocusRequester() }
+    if (returning) {
+        LaunchedEffect(Unit) {
+            // the video's card takes the focus itself (VideoCard); if it isn't on screen, the content's first item does
+            delay(400)
+            var tries = 0
+            while (!contentHasFocus && tries++ < 40) {          // the content may still be loading
+                runCatching { contentFocus.requestFocus() }
+                delay(50)
+            }
+            container.returnFocusTo = null
+        }
+    }
     LaunchedEffect(contentHasFocus) { if (contentHasFocus) sidebarOpen = false }
     fun showSidebar() {
         sidebarOpen = true
@@ -111,7 +128,9 @@ fun BrowseScreen(
             Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .onFocusChanged { contentHasFocus = it.hasFocus },
+                .onFocusChanged { contentHasFocus = it.hasFocus }
+                .focusRequester(contentFocus)
+                .focusGroup(),
         ) {
             val library = sidebar.active
             key(library) {

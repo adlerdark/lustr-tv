@@ -27,6 +27,9 @@ sealed interface Load<out T> {
     data class Failed(val message: String) : Load<Nothing>
 }
 
+/** [AppContainer.returnFocusTo]: back to the content (no particular card). */
+const val FOCUS_CONTENT = ""
+
 /**
  * The app's shared objects. One OkHttpClient (with the login cookie) serves the API, the
  * thumbnails (Coil) and the video player (ExoPlayer): lustr refuses all of them without the cookie.
@@ -114,6 +117,12 @@ class AppContainer(context: Context) {
      */
     @Volatile
     var keyInterceptor: ((KeyEvent) -> Boolean)? = null
+
+    /**
+     * Set when a video (player, Video info) or a cast page is opened: where the focus goes on the
+     * way back – the card of this video path, or [FOCUS_CONTENT]: just the content, not the sidebar.
+     */
+    var returnFocusTo: String? = null
 
     private companion object {
         const val KEY_SERVER = "server_url"

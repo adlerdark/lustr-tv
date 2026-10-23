@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.lustr.tv.AppContainer
+import com.lustr.tv.FOCUS_CONTENT
 import com.lustr.tv.core.Video
 import com.lustr.tv.ui.browse.BrowseScreen
 import com.lustr.tv.ui.browse.VideoActionsHost
@@ -57,11 +58,13 @@ fun LustrNavHost(container: AppContainer) {
         }
     }
 
-    val play = { video: Video -> nav.navigate(Routes.player(video.path)) }
-    val openCast = { name: String -> nav.navigate(Routes.cast(name)) }
+    // coming back, the focus returns to the video's card (or at least the content, not the sidebar)
+    val play = { video: Video -> container.returnFocusTo = video.path; nav.navigate(Routes.player(video.path)) }
+    val openCast = { name: String -> container.returnFocusTo = container.returnFocusTo ?: FOCUS_CONTENT; nav.navigate(Routes.cast(name)) }
+    val openInfo = { video: Video -> container.returnFocusTo = video.path; nav.navigate(Routes.videoInfo(video.path)) }
 
     // a long press on any video card opens the video menu (VideoActions)
-    VideoActionsHost(container, onPlay = play, onVideoInfo = { nav.navigate(Routes.videoInfo(it.path)) }) {
+    VideoActionsHost(container, onPlay = play, onVideoInfo = openInfo) {
         NavHost(navController = nav, startDestination = start) {
             composable(Routes.SERVER) {
                 ServerScreen(container, onConnected = { nav.resetTo(Routes.LOGIN) })

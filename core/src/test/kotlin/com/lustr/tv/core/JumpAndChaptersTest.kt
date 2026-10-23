@@ -107,4 +107,17 @@ class JumpAndChaptersTest {
         assertEquals(listOf("D"), CastBrowse.filter(cast, category = CastCategoryFilter.CELEB).map { it.name })
         assertEquals(4, CastBrowse.filter(cast).size)
     }
+
+    @Test
+    fun hoverPreviewFrames() {
+        val v = Video(path = "/a.mp4", cacheId = "abc", thumb = "/cache/abc/thumb_0.webp?v=17")
+        val frames = HoverPreview.frames(v)
+        assertEquals(8, frames.size)
+        assertEquals("/cache/abc/thumb_0.webp?v=17", frames.first())
+        assertEquals("/cache/abc/thumb_7.webp?v=17", frames.last())
+        // a custom cover is the card picture, the frames are still the thumb_ ones; no ?v= -> none added
+        assertEquals("/cache/abc/thumb_3.webp", HoverPreview.frames(v.copy(thumb = "/cache/abc/cover.webp"))[3])
+        assertTrue(HoverPreview.frames(v.copy(cacheId = null)).isEmpty())
+        assertTrue(HoverPreview.frames(v.copy(thumb = null)).isEmpty())      // thumbnails not made yet
+    }
 }

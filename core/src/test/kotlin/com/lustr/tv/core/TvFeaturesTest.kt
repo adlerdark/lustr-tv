@@ -122,6 +122,8 @@ class TvFeaturesTest {
         assertFalse(LengthRange.UNDER_2.value in s.defaultLengths)          // < 2 min hidden by default
         assertEquals(5, s.defaultLengths.size)
         assertEquals(10, s.seekStepSeconds)
+        assertTrue(s.animatedPreviews)
+        assertFalse(TvSettings.decode("""{"animatedPreviews":false}""").animatedPreviews)
         val changed = s.copy(seekStepSeconds = 30, resume = ResumeMode.ASK, defaultLengths = emptySet())
         assertEquals(changed, TvSettings.decode(TvSettings.encode(changed)))
         assertEquals(TvSettings(), TvSettings.decode("garbage"))

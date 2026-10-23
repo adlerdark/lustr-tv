@@ -113,6 +113,13 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onChangeServer: 
             }
         }
 
+        heading("Browsing")
+        item {
+            SettingRow("Moving previews", if (s.animatedPreviews) "On: the selected video plays through its preview frames" else "Off", on = s.animatedPreviews) {
+                change { it.copy(animatedPreviews = !it.animatedPreviews) }
+            }
+        }
+
         heading("Playback")
         item {
             SettingRow("Start quality", TvSettings.QUALITIES.firstOrNull { it.first == s.defaultQuality }?.second ?: s.defaultQuality) {

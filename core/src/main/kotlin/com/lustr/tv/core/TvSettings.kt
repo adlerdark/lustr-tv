@@ -23,6 +23,8 @@ data class TvSettings(
     val matchFrameRate: Boolean = true,
     /** Hide the app's picture in the recent-apps list and block screenshots / casting. */
     val privacyScreen: Boolean = true,
+    /** The selected video card plays through its preview frames, like hovering in the web app. */
+    val animatedPreviews: Boolean = true,
 ) {
     companion object {
         val QUALITIES = listOf("direct" to "Original file (direct play)", "original" to "Transcode: original size",

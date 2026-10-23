@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,8 +20,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -39,6 +43,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -74,6 +79,7 @@ import androidx.tv.material3.Card
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.compose.rememberAsyncImagePainter
@@ -107,6 +113,10 @@ import java.io.IOException
 private const val HIDE_CONTROLS_AFTER_MS = 5_000L
 private const val APPLY_SEEK_AFTER_MS = 450L
 private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+/** While the video has no preview sheet yet (the server may still be making it), ask again at most this often. */
+private const val TILES_RETRY_MS = 30_000L
+/** Height of the picture above the progress bar while seeking. */
+private val PREVIEW_HEIGHT = 144.dp
 
 /**
  * Plays one file with TV controls:
@@ -170,6 +180,29 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
 
     fun durationMs(): Long = player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: (durationSec * 1000).toLong()
 
+    // The seek-bar previews (the web app's sprite sheet): for the picture above the bar and the chapters
+    var tilesLoading by remember { mutableStateOf(false) }
+    var tilesTriedAt by remember { mutableLongStateOf(0L) }
+    fun loadTiles() {
+        val now = System.currentTimeMillis()
+        if (tiles.isNotEmpty() || tilesLoading || now - tilesTriedAt < TILES_RETRY_MS) return
+        tilesLoading = true
+        tilesTriedAt = now
+        scope.launch {
+            try {
+                val found = container.load { spriteTiles(sprite?.takeIf { it.ready } ?: streams(path).sprite) }
+                (found as? Load.Ready)?.value?.takeIf { it.isNotEmpty() }?.let { list ->
+                    tiles = list
+                    // download the sheets now, so the first preview shows straight away
+                    val loader = SingletonImageLoader.get(context)
+                    list.map { it.image }.distinct().forEach { loader.enqueue(ImageRequest.Builder(context).data(it).size(CoilSize.ORIGINAL).build()) }
+                }
+            } finally {
+                tilesLoading = false
+            }
+        }
+    }
+
     fun report(final: Boolean) {
         if (sources.isEmpty()) return
         val total = if (durationSec > 0) durationSec else durationMs() / 1000.0
@@ -200,6 +233,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
             }
             title = video?.displayTitle.orEmpty()
             sprite = info.sprite
+            loadTiles()
             info.videoId?.let { id ->
                 (container.load { markers(id) } as? Load.Ready)?.let { markers = it.value }      // chapters
             }
@@ -319,6 +353,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
                     KeyEvent.ACTION_DOWN -> {
                         // first press and every repeat: RemoteSeek speeds up the longer the seeking goes on
                         applyJob?.cancel()
+                        if (tiles.isEmpty()) loadTiles()
                         seekTarget = seek.press(e.eventTime, player.currentPosition, dir, durationMs())
                     }
                     KeyEvent.ACTION_UP -> {
@@ -385,6 +420,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
         message?.let { Banner(it, Modifier.align(Alignment.TopCenter)) }
 
         val shownPosition = seekTarget ?: position
+        val previewTile = if (seekTarget != null) SpriteSheet.tileAt(tiles, shownPosition / 1000.0) else null
         if (controlsVisible) {
             Controls(
                 title = title,
@@ -392,6 +428,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
                 position = shownPosition,
                 duration = durationMs(),
                 seeking = seekTarget != null,
+                preview = previewTile,
                 isPlaying = isPlaying,
                 seekStepSeconds = settings.seekStepSeconds,
                 captionsOn = textGroups(tracks).any { it.isSelected },
@@ -411,10 +448,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
                             path = path,
                             client = client,
                             tiles = tiles,
-                            onOpen = {
-                                // preview tiles: fetched when the chapters are first opened (the sheet may still be in the making)
-                                if (tiles.isEmpty()) scope.launch { (container.load { spriteTiles(client.streams(path).sprite ?: sprite) } as? Load.Ready)?.let { tiles = it.value } }
-                            },
+                            onOpen = { loadTiles() },          // the sheet may have been made since the start
                             onPick = { m -> player.seekTo((m.seconds * 1000).toLong()) },
                         )
                     }
@@ -422,7 +456,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
             )
         } else if (seekTarget != null) {
             // seeking without the controls: just the bar and the time
-            SeekOverlay(shownPosition, durationMs(), Modifier.align(Alignment.BottomCenter))
+            SeekOverlay(shownPosition, durationMs(), previewTile, Modifier.align(Alignment.BottomCenter))
         }
     }
 
@@ -480,6 +514,7 @@ private fun Controls(
     position: Long,
     duration: Long,
     seeking: Boolean,
+    preview: SpriteTile?,
     isPlaying: Boolean,
     seekStepSeconds: Int,
     captionsOn: Boolean,
@@ -509,7 +544,7 @@ private fun Controls(
         above()
         // The progress bar: focusable, ◀ / ▶ on it seek (handled in the key interceptor)
         ProgressBar(
-            position, duration, seeking,
+            position, duration, seeking, preview,
             Modifier
                 .focusRequester(seekBarFocus)
                 .onFocusChanged { barFocused = it.isFocused; onSeekBarFocus(it.isFocused) }
@@ -529,10 +564,11 @@ private fun Controls(
     }
 }
 
+/** The progress bar; while seeking, [preview] (the frame where the seek lands) floats above it at that spot. */
 @Composable
-private fun ProgressBar(position: Long, duration: Long, seeking: Boolean, modifier: Modifier = Modifier) {
+private fun ProgressBar(position: Long, duration: Long, seeking: Boolean, preview: SpriteTile? = null, modifier: Modifier = Modifier) {
     val fraction = if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
-    Box(modifier.fillMaxWidth().height(18.dp), contentAlignment = Alignment.CenterStart) {
+    BoxWithConstraints(modifier.fillMaxWidth().height(18.dp), contentAlignment = Alignment.CenterStart) {
         Box(Modifier.fillMaxWidth().height(6.dp).background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(3.dp)))
         Box(
             Modifier
@@ -540,12 +576,55 @@ private fun ProgressBar(position: Long, duration: Long, seeking: Boolean, modifi
                 .height(6.dp)
                 .background(if (seeking) LustrColors.primarySoft else LustrColors.primaryLight, RoundedCornerShape(3.dp)),
         )
+        if (seeking && preview != null) {
+            // centred over the spot, kept on screen; drawn outside the bar's box (above it), not taking space
+            val width = previewWidth(preview)
+            val x = (maxWidth * fraction - width / 2).coerceIn(0.dp, (maxWidth - width).coerceAtLeast(0.dp))
+            SeekPreview(
+                preview, position,
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = x, y = -(18.dp + 10.dp))
+                    .wrapContentHeight(Alignment.Bottom, unbounded = true)
+                    .requiredWidth(width),
+            )
+        }
+    }
+}
+
+/** The preview's width for the tile's shape (portrait videos get a narrower picture). */
+private fun previewWidth(tile: SpriteTile) =
+    if (tile.w > 0 && tile.h > 0) (PREVIEW_HEIGHT * (tile.w.toFloat() / tile.h)).coerceIn(80.dp, 256.dp) else 256.dp
+
+/** The frame where a seek lands (from the preview sheet) and its time, like the web app's seek-bar hover. */
+@Composable
+private fun SeekPreview(tile: SpriteTile, position: Long, modifier: Modifier = Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(PREVIEW_HEIGHT)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.Black)
+                .border(2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(6.dp)),
+        ) {
+            SpriteTileImage(tile, Modifier.fillMaxSize())
+        }
+        Text(
+            formatTime(position),
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            modifier = Modifier
+                .padding(top = 4.dp)
+                .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+        )
     }
 }
 
 /** Shown while seeking with the controls hidden. */
 @Composable
-private fun SeekOverlay(position: Long, duration: Long, modifier: Modifier = Modifier) {
+private fun SeekOverlay(position: Long, duration: Long, preview: SpriteTile?, modifier: Modifier = Modifier) {
     Column(
         modifier
             .fillMaxWidth()
@@ -554,8 +633,14 @@ private fun SeekOverlay(position: Long, duration: Long, modifier: Modifier = Mod
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("${formatTime(position)} / ${formatTime(duration)}", style = MaterialTheme.typography.titleLarge, color = Color.White)
-        ProgressBar(position, duration, seeking = true)
+        // with a preview, its time is under the picture; the total stays readable here
+        Text(
+            if (preview != null) formatTime(duration) else "${formatTime(position)} / ${formatTime(duration)}",
+            style = MaterialTheme.typography.titleLarge,
+            color = Color.White,
+            modifier = Modifier.align(if (preview != null) Alignment.End else Alignment.CenterHorizontally),
+        )
+        ProgressBar(position, duration, seeking = true, preview = preview)
     }
 }
 
