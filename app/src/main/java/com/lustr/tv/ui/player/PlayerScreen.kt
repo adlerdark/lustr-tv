@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -99,6 +100,7 @@ import com.lustr.tv.core.SpriteInfo
 import com.lustr.tv.core.SpriteSheet
 import com.lustr.tv.core.SpriteTile
 import com.lustr.tv.core.StreamSource
+import com.lustr.tv.core.Video
 import com.lustr.tv.core.VideoZoom
 import com.lustr.tv.ui.browse.ChoiceRow
 import com.lustr.tv.ui.browse.Panel
@@ -118,6 +120,63 @@ private const val TILES_RETRY_MS = 30_000L
 /** Height of the picture above the progress bar while seeking. */
 private val PREVIEW_HEIGHT = 144.dp
 
+/** Where the player is in a collection / movie: shown in the controls, with Previous / Next when there is one. */
+class QueueNav(val label: String, val onPrevious: (() -> Unit)?, val onNext: (() -> Unit)?)
+
+/**
+ * The player route: one video, or a collection / movie played through (AppContainer.queue, set
+ * when it was started from one). When a video ends the next one starts (from its beginning);
+ * Previous / Next in the controls and the remote's ⏮ / ⏭ move along. After the last one, back.
+ */
+@Composable
+fun PlayerHost(container: AppContainer, path: String, fromStart: Boolean, onExit: () -> Unit) {
+    val queue = remember { container.queue?.takeIf { it.current.path == path } }
+    val scope = rememberCoroutineScope()
+    var current by remember { mutableStateOf(path) }
+    var startOver by remember { mutableStateOf(fromStart) }
+    var step by remember { mutableIntStateOf(0) }            // a new player for each video, even the same file twice
+    var fetching by remember { mutableStateOf(false) }
+
+    fun open(video: Video?) {
+        if (video == null) return onExit()
+        container.returnFocusTo = video.path                 // back in the list, on the last one played
+        startOver = true
+        current = video.path
+        step++
+    }
+    fun next() {
+        val q = queue ?: return onExit()
+        if (fetching) return
+        fetching = true
+        scope.launch {
+            try {
+                open(q.next())                               // may fetch more of a long collection first
+            } catch (e: IOException) {
+                container.onError(e)
+                onExit()
+            } finally {
+                fetching = false
+            }
+        }
+    }
+
+    val nav = queue?.let { q ->
+        QueueNav(
+            label = "${q.title} · ${q.positionLabel}",
+            onPrevious = if (q.hasPrevious) ({ open(q.previous()) }) else null,
+            onNext = if (q.hasNext) ({ next() }) else null,
+        )
+    }
+    key(step) {
+        PlayerScreen(
+            container, current, onExit,
+            fromStart = startOver,
+            queue = nav,
+            onEnded = { if (queue?.hasNext == true) next() else onExit() },
+        )
+    }
+}
+
 /**
  * Plays one file with TV controls:
  *  - controls hidden: ◀ / ▶ jump back / forward (Settings: seek step); hold to seek fast, the jump
@@ -129,11 +188,19 @@ private val PREVIEW_HEIGHT = 144.dp
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
+fun PlayerScreen(
+    container: AppContainer,
+    path: String,
+    onExit: () -> Unit,
+    fromStart: Boolean = false,
+    queue: QueueNav? = null,
+    onEnded: () -> Unit = onExit,
+) {
     val context = LocalContext.current
     val client = remember { container.client }
     val settings = remember { container.settings.value }          // fixed for this playback
     val exit by rememberUpdatedState(onExit)
+    val ended by rememberUpdatedState(onEnded)
     val scope = rememberCoroutineScope()
 
     val player = remember {
@@ -246,7 +313,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
             }
             val resumeAt = Playback.startPosition(video?.watchProgress, info.duration)
             when {
-                resumeAt <= 0 || settings.resume == ResumeMode.NEVER -> play(0, 0)
+                fromStart || resumeAt <= 0 || settings.resume == ResumeMode.NEVER -> play(0, 0)
                 settings.resume == ResumeMode.ASK -> askResumeAt = resumeAt
                 else -> play(0, (resumeAt * 1000).toLong())
             }
@@ -277,7 +344,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 when (playbackState) {
                     Player.STATE_READY -> message = null
-                    Player.STATE_ENDED -> exit()
+                    Player.STATE_ENDED -> ended()             // the next one of a collection / movie, or back
                     else -> Unit
                 }
             }
@@ -367,6 +434,11 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
                 return@handler true
             }
             when (code) {
+                KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                    val move = if (code == KeyEvent.KEYCODE_MEDIA_NEXT) queue?.onNext else queue?.onPrevious
+                    if (move != null && e.action == KeyEvent.ACTION_UP) move()
+                    move != null
+                }
                 KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE -> {
                     if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0) {
                         when {
@@ -424,6 +496,7 @@ fun PlayerScreen(container: AppContainer, path: String, onExit: () -> Unit) {
         if (controlsVisible) {
             Controls(
                 title = title,
+                queue = queue,
                 sourceLabel = sources.getOrNull(sourceIndex)?.label.orEmpty(),
                 position = shownPosition,
                 duration = durationMs(),
@@ -525,6 +598,7 @@ private fun Controls(
     onJump: (Int) -> Unit,
     onCaptions: () -> Unit,
     onMenu: () -> Unit,
+    queue: QueueNav? = null,
     modifier: Modifier = Modifier,
     above: @Composable () -> Unit = {},
 ) {
@@ -537,8 +611,10 @@ private fun Controls(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Column(Modifier.weight(1f)) {
+                queue?.let { Text(it.label, style = MaterialTheme.typography.labelLarge, color = LustrColors.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             Text(sourceLabel, color = LustrColors.textSecondary)
         }
         above()
@@ -556,6 +632,8 @@ private fun Controls(
             OutlinedButton(onClick = onPlayPause) { Text(if (isPlaying) "❚❚  Pause" else "▶  Play") }
             OutlinedButton(onClick = { onJump(-1) }) { Text("−${seekStepSeconds}s") }
             OutlinedButton(onClick = { onJump(1) }) { Text("+${seekStepSeconds}s") }
+            queue?.onPrevious?.let { OutlinedButton(onClick = it) { Text("⏮  Previous") } }
+            queue?.onNext?.let { OutlinedButton(onClick = it) { Text("Next  ⏭") } }
             if (hasCaptions) OutlinedButton(onClick = onCaptions) { Text(if (captionsOn) "CC on" else "CC off") }
             OutlinedButton(onClick = onMenu) { Text("⚙  Settings") }
             Spacer(Modifier.weight(1f))

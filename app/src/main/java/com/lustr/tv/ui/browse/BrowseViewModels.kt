@@ -158,7 +158,7 @@ class CollectionsViewModel(private val container: AppContainer, private val libr
     private val _open = MutableStateFlow<VideoCollection?>(null)
     val open: StateFlow<VideoCollection?> = _open
 
-    val items = Pager<Video>(viewModelScope, pageSize = 60, onError = container::onError) { page, limit ->
+    val items = Pager<Video>(viewModelScope, pageSize = PAGE_SIZE, onError = container::onError) { page, limit ->
         val id = _open.value?.id ?: return@Pager Page(emptyList(), 0)
         container.client.collectionItems(id, page, limit).let { Page(it.items, it.total) }
     }
@@ -179,6 +179,11 @@ class CollectionsViewModel(private val container: AppContainer, private val libr
 
     fun close() {
         _open.value = null
+    }
+
+    companion object {
+        /** Videos per page of an opened collection (the player asks for more pages the same way). */
+        const val PAGE_SIZE = 60
     }
 }
 

@@ -48,17 +48,20 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
     length, and tags / sites with counts – press once for ✓ (must have), again for ✕ (must not have),
     again to clear. The tags / sites that are on are listed at the top of Filters, the rest by
     count. **Clear** removes the search, tags, sites and favorites but keeps the length filter.
-  - **Collections** – hand-picked and smart collections; open one to see its videos.
+  - **Collections** – hand-picked and smart collections; open one to see its videos. **▶ Play all**
+    plays them one after another; starting any video of it does the same from that video on.
   - **Movies** – posters (upright, 2:3) with Search, Sort (title, year, most scenes, recently added,
     favorites first), Filters (favorites, tags and sites with counts) and, sorted by title, the #–Z
-    bar; open one for its details and its scenes in order (landscape).
+    bar; open one for its details and its scenes in order (landscape). **▶ Play all** plays the
+    scenes in order; starting any scene plays the ones after it too.
 - **Cast** (Home's second tab): everyone with their photo – Search (names and aliases), Sort (most
   videos / name), Women / Men / Trans, Pro / Amateur / Celeb, Favorites only. A performer's page shows their photo, details, aliases,
   appearance, the StashDB / ThePornDB profile when linked, their libraries and all their videos;
   ★ marks them as a favorite (the only change you can make there).
 - **Moving previews**: rest on a video card for a moment and it plays through its preview frames,
   like hovering in the web app (Settings → Browsing → Moving previews turns it off).
-- **Hold OK on any video** (rows, grids, collections, movies, cast pages) for a menu: Play, add to /
+- **Hold OK on any video** (rows, grids, collections, movies, cast pages) for a menu: Play, **Play
+  from start** (ignores where you left off; inside a collection / movie both carry on with the rest), add to /
   remove from favorites, **Video info** (the cast with photos – each opens their page – and all the
   metadata tags, read-only) and **File info** (like the web app's: title, date added, library, movie,
   cast, and each file's name, path, cache ID, resolution, codec, container, size, length, bitrate).
@@ -72,6 +75,9 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
     jumps when you let go. ⏪ / ⏩ do the same. **Play/Pause** any time. While seeking, the frame
     where you'll land shows above the progress bar (from the server's seek-bar preview sheet, like
     the web app; a brand-new video may not have one yet).
+  - **Collections and movies** play through: when a video ends the next one starts (from its
+    beginning), and the controls show where you are ("Picks · 3 of 12") with **⏮ Previous** /
+    **Next ⏭** buttons (the remote's ⏮ / ⏭ keys work too). After the last one you're back in the list.
   - **Chapters**: with the controls showing, **▲ from the progress bar** opens the video's chapters /
     markers as cards with a picture; OK jumps there. (Pictures are the nearest seek-bar preview; the
     exact frame once the server has `docs/SERVER_CHANGES.md` §6.)
@@ -181,7 +187,7 @@ LUSTR_TEST_URL=192.168.1.20:8008 LUSTR_TEST_USER=you LUSTR_TEST_PASSWORD='...' .
 ## Ideas for next steps
 
 - A "Surround sound in transcodes" setting (lustr 0.8.1's `audio=surround`) and a max bitrate.
-- Playlists / Watchlist (`/api/playlists`), play the next scene / collection video automatically.
+- Playlists / Watchlist (`/api/playlists`) – the player can already play a list through (PlayQueue).
 - Follow the theme chosen in lustr's settings (the app uses lustr's default dark theme).
 - A media session (play/pause from the Google TV / Shield remote apps). Not added yet on purpose: it
   would show the video's title outside the app, so it should follow lustr's "Lock screen" privacy setting.

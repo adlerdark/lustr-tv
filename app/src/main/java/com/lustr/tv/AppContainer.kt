@@ -8,6 +8,7 @@ import com.lustr.tv.core.CookieStorage
 import com.lustr.tv.core.LustrClient
 import com.lustr.tv.core.LustrException
 import com.lustr.tv.core.PersistentCookieJar
+import com.lustr.tv.core.PlayQueue
 import com.lustr.tv.core.TvSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -123,6 +124,9 @@ class AppContainer(context: Context) {
      * way back – the card of this video path, or [FOCUS_CONTENT]: just the content, not the sidebar.
      */
     var returnFocusTo: String? = null
+
+    /** What the player is going through (a collection / movie), set just before it opens; null = one video. */
+    var queue: PlayQueue? = null
 
     private companion object {
         const val KEY_SERVER = "server_url"

@@ -162,6 +162,7 @@ fun PictureCard(
 @Composable
 fun VideoCard(video: Video, imageUrl: ImageUrl, onClick: () -> Unit, modifier: Modifier = Modifier, label: String? = null) {
     val actions = LocalVideoActions.current
+    val queueFor = LocalQueueFor.current
     val focus = remember { FocusRequester() }
     // back from this video (player, Video info): the focus returns to its card
     LaunchedEffect(video.path) {
@@ -173,7 +174,7 @@ fun VideoCard(video: Video, imageUrl: ImageUrl, onClick: () -> Unit, modifier: M
         onClick = onClick,
         modifier = modifier,
         subtitle = (video.cast.take(2) + video.site.take(1)).joinToString(" · "),     // also under "Scene 2" in a movie
-        onLongClick = actions?.let { a -> { a.openMenu(video) } },
+        onLongClick = actions?.let { a -> { a.openMenu(video, queueFor?.invoke(video)) } },
         previewFrames = if (actions?.animatedPreviews?.invoke() == true) HoverPreview.frames(video).map(imageUrl) else emptyList(),
         focusRequester = focus,
     ) {

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,7 @@ import com.lustr.tv.core.Letters
 import com.lustr.tv.core.MovieDetail
 import com.lustr.tv.core.MovieSort
 import com.lustr.tv.core.PagedState
+import com.lustr.tv.core.PlayQueue
 import com.lustr.tv.core.after
 import com.lustr.tv.core.SortOption
 import com.lustr.tv.core.Video
@@ -162,29 +164,40 @@ fun CollectionsTab(container: AppContainer, library: String, imageUrl: ImageUrl,
         }
     } else {
         BackHandler { vm.close() }
-        PagedGrid(
-            state = items,
-            onLoadMore = vm.items::loadMore,
-            onRetry = vm.items::retry,
-            key = { it.path },
-            emptyText = "This collection is empty.",
-            header = {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    DetailHeader(
-                        title = opened.name,
-                        lines = listOfNotNull(
-                            listOfNotNull(
-                                items.total.takeIf { it >= 0 }?.let { "$it videos" },
-                                "smart collection".takeIf { opened.isSmart },
-                            ).joinToString(" · ").ifEmpty { null },
-                            opened.description?.takeIf { it.isNotBlank() },
-                        ),
-                        onBack = vm::close,
-                    )
-                }
-            },
-        ) { video ->
-            VideoCard(video, imageUrl, onClick = { onPlay(video) })
+        // a video started here plays the rest of the collection after it (more pages are fetched as needed)
+        val actions = LocalVideoActions.current
+        val client = container.client
+        val queueFor = { v: Video ->
+            PlayQueue.startingAt(opened.name, items.items, v, total = items.total, pageSize = CollectionsViewModel.PAGE_SIZE) { page ->
+                client.collectionItems(opened.id, page, CollectionsViewModel.PAGE_SIZE).items
+            }
+        }
+        CompositionLocalProvider(LocalQueueFor provides queueFor) {
+            PagedGrid(
+                state = items,
+                onLoadMore = vm.items::loadMore,
+                onRetry = vm.items::retry,
+                key = { it.path },
+                emptyText = "This collection is empty.",
+                header = {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        DetailHeader(
+                            title = opened.name,
+                            lines = listOfNotNull(
+                                listOfNotNull(
+                                    items.total.takeIf { it >= 0 }?.let { "$it videos" },
+                                    "smart collection".takeIf { opened.isSmart },
+                                ).joinToString(" · ").ifEmpty { null },
+                                opened.description?.takeIf { it.isNotBlank() },
+                            ),
+                            onBack = vm::close,
+                            onPlayAll = items.items.firstOrNull()?.let { first -> { actions?.playQueue(queueFor(first), true) } },
+                        )
+                    }
+                },
+            ) { video ->
+                VideoCard(video, imageUrl, onClick = { actions?.playQueue(queueFor(video), false) ?: onPlay(video) })
+            }
         }
     }
 }
@@ -278,42 +291,49 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
 @Composable
 fun MovieDetailContent(detail: MovieDetail, imageUrl: ImageUrl, onPlay: (Video) -> Unit, onBack: () -> Unit) {
     val movie = detail.movie
-    PagedGrid(
-        state = PagedState(items = detail.items, total = detail.items.size),
-        onLoadMore = {},
-        onRetry = {},
-        key = { it.path },
-        emptyText = "No scenes.",
-        header = {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                DetailHeader(
-                    title = movie?.displayTitle.orEmpty(),
-                    lines = listOfNotNull(
-                        listOfNotNull(
-                            movie?.year?.takeIf { it.isNotBlank() },
-                            movie?.studio?.takeIf { it.isNotBlank() },
-                            movie?.runtime?.let { "${it.toInt()} min" },
-                            "${detail.items.size} scenes",
-                        ).joinToString(" · "),
-                        movie?.director?.takeIf { it.isNotBlank() }?.let { "Director: $it" },
-                        movie?.description?.takeIf { it.isNotBlank() },
-                    ),
-                    onBack = onBack,
-                )
-            }
-        },
-    ) { video ->
-        val label = video.movieScene?.takeIf { it.isNotBlank() }?.let { "Scene $it" }
-        VideoCard(video, imageUrl, onClick = { onPlay(video) }, label = label)
+    // a scene started here plays the following scenes after it
+    val actions = LocalVideoActions.current
+    val queueFor = { v: Video -> PlayQueue.startingAt(movie?.displayTitle.orEmpty().ifEmpty { "Movie" }, detail.items, v) }
+    CompositionLocalProvider(LocalQueueFor provides queueFor) {
+        PagedGrid(
+            state = PagedState(items = detail.items, total = detail.items.size),
+            onLoadMore = {},
+            onRetry = {},
+            key = { it.path },
+            emptyText = "No scenes.",
+            header = {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    DetailHeader(
+                        title = movie?.displayTitle.orEmpty(),
+                        lines = listOfNotNull(
+                            listOfNotNull(
+                                movie?.year?.takeIf { it.isNotBlank() },
+                                movie?.studio?.takeIf { it.isNotBlank() },
+                                movie?.runtime?.let { "${it.toInt()} min" },
+                                "${detail.items.size} scenes",
+                            ).joinToString(" · "),
+                            movie?.director?.takeIf { it.isNotBlank() }?.let { "Director: $it" },
+                            movie?.description?.takeIf { it.isNotBlank() },
+                        ),
+                        onBack = onBack,
+                        onPlayAll = detail.items.firstOrNull()?.let { first -> { actions?.playQueue(queueFor(first), true) } },
+                    )
+                }
+            },
+        ) { video ->
+            val label = video.movieScene?.takeIf { it.isNotBlank() }?.let { "Scene $it" }
+            VideoCard(video, imageUrl, onClick = { actions?.playQueue(queueFor(video), false) ?: onPlay(video) }, label = label)
+        }
     }
 }
 
-/** Title, a few lines of details and a Back button, above an opened collection / movie. */
+/** Title, a few lines of details, a Back button and (with [onPlayAll]) Play all, above an opened collection / movie. */
 @Composable
-internal fun DetailHeader(title: String, lines: List<String>, onBack: () -> Unit) {
+internal fun DetailHeader(title: String, lines: List<String>, onBack: () -> Unit, onPlayAll: (() -> Unit)? = null) {
     Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             OutlinedButton(onClick = onBack) { Text("‹ Back") }
+            onPlayAll?.let { Button(onClick = it) { Text("▶  Play all") } }
             SectionTitle(title)
         }
         for (line in lines) {

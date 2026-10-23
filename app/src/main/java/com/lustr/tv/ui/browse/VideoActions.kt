@@ -33,13 +33,17 @@ import androidx.tv.material3.Text
 import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
 import com.lustr.tv.core.FileVersion
+import com.lustr.tv.core.PlayQueue
 import com.lustr.tv.core.Video
 import com.lustr.tv.ui.theme.LustrColors
 import kotlinx.coroutines.launch
 
 /** What a video card can do besides playing: the long-press menu, and favorites changed on this TV. */
 class VideoActions(
-    val openMenu: (Video) -> Unit,
+    /** The long-press menu; [queue] when the video is in a collection / movie being shown. */
+    val openMenu: (video: Video, queue: PlayQueue?) -> Unit,
+    /** Play [queue] from its current video (Play all, or a video of a collection / movie). */
+    val playQueue: (queue: PlayQueue, fromStart: Boolean) -> Unit,
     val isFavorite: (Video) -> Boolean,
     /** Moving previews on the selected card (Settings). */
     val animatedPreviews: () -> Boolean = { false },
@@ -51,21 +55,29 @@ class VideoActions(
 val LocalVideoActions = staticCompositionLocalOf<VideoActions?> { null }
 
 /**
+ * Provided by a collection / movie page: the queue to play when one of its videos is started
+ * (from the card or its menu), so the rest follows it.
+ */
+val LocalQueueFor = staticCompositionLocalOf<((Video) -> PlayQueue)?> { null }
+
+/**
  * Hosts the long-press menu (play, favorite, video info, file info) and the File info window
  * for every screen inside it.
  */
 @Composable
 fun VideoActionsHost(
     container: AppContainer,
-    onPlay: (Video) -> Unit,
+    onPlay: (video: Video, fromStart: Boolean, queue: PlayQueue?) -> Unit,
     onVideoInfo: (Video) -> Unit,
     content: @Composable () -> Unit,
 ) {
     var menuFor by remember { mutableStateOf<Video?>(null) }
+    var menuQueue by remember { mutableStateOf<PlayQueue?>(null) }
     var fileInfoFor by remember { mutableStateOf<Video?>(null) }
     val actions = remember(container) {
         VideoActions(
-            openMenu = { menuFor = it },
+            openMenu = { video, queue -> menuFor = video; menuQueue = queue },
+            playQueue = { queue, fromStart -> onPlay(queue.current, fromStart, queue) },
             isFavorite = { v -> container.videoFavorites[v.path] ?: v.isFavorite },
             animatedPreviews = { container.settings.value.animatedPreviews },
             claimFocus = { v -> (container.returnFocusTo == v.path).also { if (it) container.returnFocusTo = null } },
@@ -78,7 +90,8 @@ fun VideoActionsHost(
             container = container,
             video = video,
             favorite = actions.isFavorite(video),
-            onPlay = { menuFor = null; onPlay(video) },
+            inQueue = menuQueue?.title,
+            onPlay = { fromStart -> menuFor = null; onPlay(video, fromStart, menuQueue) },
             onVideoInfo = { menuFor = null; onVideoInfo(video) },
             onFileInfo = { menuFor = null; fileInfoFor = video },
             onDismiss = { menuFor = null },
@@ -92,7 +105,9 @@ private fun VideoMenu(
     container: AppContainer,
     video: Video,
     favorite: Boolean,
-    onPlay: () -> Unit,
+    /** The collection / movie it's played in (then the rest follows), or null. */
+    inQueue: String?,
+    onPlay: (fromStart: Boolean) -> Unit,
     onVideoInfo: () -> Unit,
     onFileInfo: () -> Unit,
     onDismiss: () -> Unit,
@@ -104,7 +119,9 @@ private fun VideoMenu(
         // opened by holding OK: the rest of that press (repeats, letting go) mustn't press "Play"
         Column(Modifier.ignoreHeldOk(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             SectionTitle(video.displayTitle, Modifier.padding(bottom = 8.dp))
-            ChoiceRow("Play", onClick = onPlay, marker = "▶", modifier = Modifier.focusRequester(first))
+            ChoiceRow("Play", onClick = { onPlay(false) }, marker = "▶", modifier = Modifier.focusRequester(first))
+            ChoiceRow("Play from start", onClick = { onPlay(true) }, marker = "⏮")
+            inQueue?.let { Text("Then plays the rest of $it", style = MaterialTheme.typography.labelSmall, color = LustrColors.textSecondary, modifier = Modifier.padding(start = 36.dp, bottom = 4.dp)) }
             ChoiceRow(
                 if (favorite) "Remove from favorites" else "Add to favorites",
                 marker = if (favorite) "★" else "☆",

@@ -13,6 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.lustr.tv.AppContainer
 import com.lustr.tv.FOCUS_CONTENT
+import com.lustr.tv.core.PlayQueue
 import com.lustr.tv.core.Video
 import com.lustr.tv.ui.browse.BrowseScreen
 import com.lustr.tv.ui.browse.VideoActionsHost
@@ -20,7 +21,7 @@ import com.lustr.tv.ui.info.CastScreen
 import com.lustr.tv.ui.info.VideoInfoScreen
 import com.lustr.tv.ui.login.LoginScreen
 import com.lustr.tv.ui.login.ServerScreen
-import com.lustr.tv.ui.player.PlayerScreen
+import com.lustr.tv.ui.player.PlayerHost
 import com.lustr.tv.ui.settings.SettingsScreen
 
 private object Routes {
@@ -28,10 +29,11 @@ private object Routes {
     const val LOGIN = "login"
     const val BROWSE = "browse"
     const val SETTINGS = "settings"
-    const val PLAYER = "player?path={path}"
+    const val PLAYER = "player?path={path}&start={start}"
     const val VIDEO_INFO = "video?path={path}"
     const val CAST = "cast?name={name}"
-    fun player(path: String) = "player?path=${Uri.encode(path)}"
+    /** [fromStart]: ignore the resume point. */
+    fun player(path: String, fromStart: Boolean = false) = "player?path=${Uri.encode(path)}&start=$fromStart"
     fun videoInfo(path: String) = "video?path=${Uri.encode(path)}"
     fun cast(name: String) = "cast?name=${Uri.encode(name)}"
 }
@@ -59,12 +61,22 @@ fun LustrNavHost(container: AppContainer) {
     }
 
     // coming back, the focus returns to the video's card (or at least the content, not the sidebar)
-    val play = { video: Video -> container.returnFocusTo = video.path; nav.navigate(Routes.player(video.path)) }
+    // one video, or a collection / movie played through (PlayQueue)
+    fun startPlayer(video: Video, fromStart: Boolean, queue: PlayQueue?) {
+        container.returnFocusTo = video.path
+        container.queue = queue
+        nav.navigate(Routes.player(video.path, fromStart))
+    }
+    val play = { video: Video -> startPlayer(video, fromStart = false, queue = null) }
     val openCast = { name: String -> container.returnFocusTo = container.returnFocusTo ?: FOCUS_CONTENT; nav.navigate(Routes.cast(name)) }
     val openInfo = { video: Video -> container.returnFocusTo = video.path; nav.navigate(Routes.videoInfo(video.path)) }
 
     // a long press on any video card opens the video menu (VideoActions)
-    VideoActionsHost(container, onPlay = play, onVideoInfo = openInfo) {
+    VideoActionsHost(
+        container,
+        onPlay = { video, fromStart, queue -> startPlayer(video, fromStart, queue) },
+        onVideoInfo = openInfo,
+    ) {
         NavHost(navController = nav, startDestination = start) {
             composable(Routes.SERVER) {
                 ServerScreen(container, onConnected = { nav.resetTo(Routes.LOGIN) })
@@ -107,11 +119,15 @@ fun LustrNavHost(container: AppContainer) {
             }
             composable(
                 Routes.PLAYER,
-                arguments = listOf(navArgument("path") { type = NavType.StringType; defaultValue = "" }),
+                arguments = listOf(
+                    navArgument("path") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("start") { type = NavType.BoolType; defaultValue = false },
+                ),
             ) { entry ->
-                PlayerScreen(
+                PlayerHost(
                     container,
                     path = entry.arguments?.getString("path").orEmpty(),
+                    fromStart = entry.arguments?.getBoolean("start") ?: false,
                     onExit = { nav.popBackStack() },
                 )
             }
