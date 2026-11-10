@@ -1,5 +1,6 @@
 package com.lustr.tv.ui.player
 
+import android.graphics.Typeface
 import android.net.Uri
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
@@ -72,8 +73,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.ConcatenatingMediaSource2
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import androidx.tv.material3.Card
@@ -88,6 +91,9 @@ import coil3.request.ImageRequest
 import coil3.size.Size as CoilSize
 import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
+import com.lustr.tv.core.CaptionEdge
+import com.lustr.tv.core.CaptionFont
+import com.lustr.tv.core.CaptionPosition
 import com.lustr.tv.core.CaptionTrack
 import com.lustr.tv.core.LustrClient
 import com.lustr.tv.core.LustrException
@@ -99,7 +105,9 @@ import com.lustr.tv.core.ResumeMode
 import com.lustr.tv.core.SpriteInfo
 import com.lustr.tv.core.SpriteSheet
 import com.lustr.tv.core.SpriteTile
+import com.lustr.tv.core.StreamInfo
 import com.lustr.tv.core.StreamSource
+import com.lustr.tv.core.TvSettings
 import com.lustr.tv.core.Video
 import com.lustr.tv.core.VideoZoom
 import com.lustr.tv.ui.browse.ChoiceRow
@@ -203,10 +211,11 @@ fun PlayerScreen(
     val ended by rememberUpdatedState(onEnded)
     val scope = rememberCoroutineScope()
 
+    // every request (video, HLS, captions) goes through OkHttp, with the login cookie
+    val sourceFactory = remember { DefaultMediaSourceFactory(OkHttpDataSource.Factory(container.http)) }
     val player = remember {
         ExoPlayer.Builder(context)
-            // every request (video, HLS, captions) goes through OkHttp, with the login cookie
-            .setMediaSourceFactory(DefaultMediaSourceFactory(OkHttpDataSource.Factory(container.http)))
+            .setMediaSourceFactory(sourceFactory)
             .build()
             .apply {
                 playWhenReady = true
@@ -225,6 +234,7 @@ fun PlayerScreen(
     var title by remember { mutableStateOf("") }
     var sources by remember { mutableStateOf<List<StreamSource>>(emptyList()) }
     var captions by remember { mutableStateOf<List<CaptionTrack>>(emptyList()) }
+    var streamInfo by remember { mutableStateOf<StreamInfo?>(null) }
     var sourceIndex by remember { mutableIntStateOf(0) }
     var durationSec by remember { mutableStateOf(0.0) }
     var message by remember { mutableStateOf<String?>("Loading…") }
@@ -285,7 +295,17 @@ fun PlayerScreen(
 
     fun play(index: Int, atMs: Long) {
         sourceIndex = index
-        player.setMediaItem(mediaItem(client, sources[index], captions), atMs)
+        val info = streamInfo
+        val files = info?.let { Playback.partSources(it, sources[index]) }
+        if (info == null || files == null) {
+            player.setMediaItem(mediaItem(client, sources[index], captions), atMs)
+        } else {
+            // a multi-part video (cd1, cd2 ...): its files joined into one timeline, so the clock, seeking,
+            // the seek bar, chapters, previews and the saved progress all go by the whole video
+            val joined = ConcatenatingMediaSource2.Builder().setMediaSourceFactory(sourceFactory)
+            files.zip(info.parts).forEach { (file, part) -> joined.add(mediaItem(client, file, emptyList()), (part.duration * 1000).toLong()) }
+            player.setMediaSource(joined.build(), atMs)
+        }
         player.prepare()
     }
 
@@ -306,6 +326,7 @@ fun PlayerScreen(
             }
             sources = Playback.order(info.sources, settings.defaultQuality)
             captions = info.captions?.tracks.orEmpty()
+            streamInfo = info
             durationSec = info.duration
             if (sources.isEmpty()) {
                 message = "No way to play this file"
@@ -483,6 +504,7 @@ fun PlayerScreen(
                     keepScreenOn = true
                     isFocusable = false
                     subtitleView?.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * settings.subtitleSize.scale)
+                    subtitleView?.let { applyCaptionLook(it, settings) }
                 }
             },
             update = { it.resizeMode = zoom.resizeMode() },
@@ -889,6 +911,35 @@ private fun SpriteTileImage(tile: SpriteTile, modifier: Modifier = Modifier) {
 }
 
 // ---- helpers --------------------------------------------------------------------------------
+
+/** The caption look chosen in the TV's Settings (the files' own colours and fonts are left out so it shows). */
+@OptIn(UnstableApi::class)
+private fun applyCaptionLook(view: SubtitleView, s: TvSettings) {
+    view.setApplyEmbeddedStyles(false)
+    view.setStyle(
+        CaptionStyleCompat(
+            s.captionColor.argb.toInt(),
+            android.graphics.Color.argb(s.captionBackground.alpha, 0, 0, 0),
+            android.graphics.Color.TRANSPARENT,
+            when (s.captionEdge) {
+                CaptionEdge.NONE -> CaptionStyleCompat.EDGE_TYPE_NONE
+                CaptionEdge.OUTLINE -> CaptionStyleCompat.EDGE_TYPE_OUTLINE
+                CaptionEdge.DROP_SHADOW -> CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW
+                CaptionEdge.RAISED -> CaptionStyleCompat.EDGE_TYPE_RAISED
+                CaptionEdge.DEPRESSED -> CaptionStyleCompat.EDGE_TYPE_DEPRESSED
+            },
+            android.graphics.Color.BLACK,
+            when (s.captionFont) {
+                CaptionFont.SANS -> Typeface.SANS_SERIF
+                CaptionFont.SERIF -> Typeface.SERIF
+                CaptionFont.MONO -> Typeface.MONOSPACE
+                CaptionFont.CASUAL -> Typeface.create("casual", Typeface.NORMAL)
+            },
+        ),
+    )
+    // captions sit on a padding from the bottom; "Top" lifts them to the upper part of the picture
+    view.setBottomPaddingFraction(if (s.captionPosition == CaptionPosition.TOP) 0.8f else SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION)
+}
 
 private fun textGroups(tracks: Tracks) = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
 

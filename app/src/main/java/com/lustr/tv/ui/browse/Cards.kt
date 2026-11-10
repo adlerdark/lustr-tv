@@ -178,6 +178,18 @@ fun VideoCard(video: Video, imageUrl: ImageUrl, onClick: () -> Unit, modifier: M
         previewFrames = if (actions?.animatedPreviews?.invoke() == true) HoverPreview.frames(video).map(imageUrl) else emptyList(),
         focusRequester = focus,
     ) {
+        if (video.parts.size > 1) {               // one video in several files (cd1, cd2 ...), played as one
+            Text(
+                "${video.parts.size} parts",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp)
+                    .background(Color(0xFF0F766E), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
         if (actions?.isFavorite(video) ?: video.isFavorite) {
             Text("★", color = LustrColors.favorite, fontSize = 18.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
         }

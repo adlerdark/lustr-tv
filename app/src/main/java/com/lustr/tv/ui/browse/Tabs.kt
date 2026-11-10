@@ -3,12 +3,16 @@ package com.lustr.tv.ui.browse
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -205,7 +209,7 @@ fun CollectionsTab(container: AppContainer, library: String, imageUrl: ImageUrl,
 // ---- Movies -------------------------------------------------------------------------------
 
 @Composable
-fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPlay: (Video) -> Unit) {
+fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPlay: (Video) -> Unit, onCast: (String) -> Unit) {
     val vm: MoviesViewModel = viewModel(key = "movies:$library") { MoviesViewModel(container, library) }
     val filter by vm.filter.collectAsStateWithLifecycle()
     val sort by vm.sort.collectAsStateWithLifecycle()
@@ -264,7 +268,7 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
             when (o) {
                 Load.Loading -> CenteredMessage("Loading…")
                 is Load.Failed -> CenteredMessage(o.message) { Button(onClick = vm::close) { Text("Back") } }
-                is Load.Ready -> MovieDetailContent(o.value, imageUrl, onPlay, onBack = vm::close)
+                is Load.Ready -> MovieDetailContent(container, o.value, imageUrl, onPlay, onCast, onBack = vm::close)
             }
         }
     }
@@ -287,9 +291,16 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
     }
 }
 
-/** One movie: its details, then its scenes in order (landscape cards). Used by the Movies tab and search. */
+/** One movie: its details, its cast, then its scenes in order (landscape cards). Used by the Movies tab and search. */
 @Composable
-fun MovieDetailContent(detail: MovieDetail, imageUrl: ImageUrl, onPlay: (Video) -> Unit, onBack: () -> Unit) {
+fun MovieDetailContent(
+    container: AppContainer,
+    detail: MovieDetail,
+    imageUrl: ImageUrl,
+    onPlay: (Video) -> Unit,
+    onCast: (String) -> Unit,
+    onBack: () -> Unit,
+) {
     val movie = detail.movie
     // a scene started here plays the following scenes after it
     val actions = LocalVideoActions.current
@@ -313,11 +324,29 @@ fun MovieDetailContent(detail: MovieDetail, imageUrl: ImageUrl, onPlay: (Video) 
                                 "${detail.items.size} scenes",
                             ).joinToString(" · "),
                             movie?.director?.takeIf { it.isNotBlank() }?.let { "Director: $it" },
+                            movie?.tags?.takeIf { it.isNotEmpty() }?.let { "Tags: ${it.joinToString(", ")}" },
                             movie?.description?.takeIf { it.isNotBlank() },
                         ),
                         onBack = onBack,
                         onPlayAll = detail.items.firstOrNull()?.let { first -> { actions?.playQueue(queueFor(first), true) } },
                     )
+                }
+                // your performers in it (photos from your server only - never ThePornDB's), each opens their page
+                val performers = movie?.performers.orEmpty()
+                if (performers.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
+                            items(performers) { name ->
+                                PersonCard(
+                                    name = name,
+                                    photoUrl = container.client.castPhotoUrl(name),
+                                    favorite = container.castFavorites[name] ?: false,
+                                    onClick = { onCast(name) },
+                                    modifier = Modifier.width(120.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             },
         ) { video ->

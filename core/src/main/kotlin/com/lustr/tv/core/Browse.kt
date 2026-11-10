@@ -38,7 +38,12 @@ object LibraryTree {
             return type == "mixed" || type in init.displayFilter
         }
 
-        fun shownLibrary(name: String) = name in libraries && name !in hidden && shownByType(name)
+        // a library that holds only images (lustr 0.20+) has nothing to show on the TV
+        val imagesOnly = libraries.keys.filter { init.libraryContent(it) == "images" }.toSet()
+        fun shownLibrary(name: String) = name in libraries && name !in hidden && name !in imagesOnly && shownByType(name)
+
+        /** Left out: a group left empty by the display filter, or one that held only images-only libraries. */
+        fun dropped(g: SidebarNode) = g.children.isEmpty() && (filtering || groups[g.name]?.libraries.orEmpty().any { it in imagesOnly })
 
         val inGroups = groups.values.flatMap { it.libraries }.filter { it in libraries }.toSet()
         val processed = mutableSetOf<String>()
@@ -48,7 +53,7 @@ object LibraryTree {
             if (name in seen) return null                      // a group inside itself: stop
             val children = g.libraries.mapNotNull { item ->
                 when {
-                    item in groups -> group(item, depth + 1, seen + name)?.takeUnless { filtering && it.children.isEmpty() }
+                    item in groups -> group(item, depth + 1, seen + name)?.takeUnless(::dropped)
                     shownLibrary(item) -> SidebarNode(item, isGroup = false, depth = depth + 1).also { processed += item }
                     else -> null
                 }
@@ -66,7 +71,7 @@ object LibraryTree {
         for (item in order) {
             val g = groups[item]
             if (g != null && g.parent.isNullOrEmpty()) {
-                group(item, 0, emptySet())?.takeUnless { filtering && it.children.isEmpty() }?.let { out += it }
+                group(item, 0, emptySet())?.takeUnless(::dropped)?.let { out += it }
             } else if (shownLibrary(item) && item !in inGroups) {
                 out += SidebarNode(item, isGroup = false)
                 processed += item
@@ -128,18 +133,31 @@ data class VideoFilter(
     val favoritesOnly: Boolean = false,
     /** Length ranges, e.g. "300-600" (see LengthRange). */
     val lengths: Set<String> = emptySet(),
+    /** At least this resolution (lustr 0.19+), or null. */
+    val resolution: ResolutionFilter? = null,
+    /** Has chapters in the file / markers (lustr 0.17+), or null. */
+    val chapters: ChaptersFilter? = null,
 ) {
     /** How many filters (not search / sort) are on, for the "Filters (3)" button. Length counts once. */
-    val activeCount: Int get() = tags.size + sites.size + (if (lengths.isNotEmpty()) 1 else 0) + (if (favoritesOnly) 1 else 0)
+    val activeCount: Int get() = tags.size + sites.size + (if (lengths.isNotEmpty()) 1 else 0) + (if (favoritesOnly) 1 else 0) +
+        (if (resolution != null) 1 else 0) + (if (chapters != null) 1 else 0)
+
+    /**
+     * The search sent to the server: what was typed, plus the resolution / chapters filters, which
+     * lustr takes as search keywords (res:hd, chapters:yes ...), like its web app does.
+     */
+    val serverQuery: String
+        get() = listOfNotNull(query.trim().ifEmpty { null }, resolution?.let { "res:${it.value}" }, chapters?.keyword).joinToString(" ")
 
     fun cycleTag(tag: String) = copy(tags = cycle(tags, tag))
     fun cycleSite(site: String) = copy(sites = cycle(sites, site))
     fun toggleLength(range: String) = copy(lengths = if (range in lengths) lengths - range else lengths + range)
-    /** Clears tags, sites and favorites; the length (time) filter stays, as do search and sort. */
-    fun clearFilters() = copy(tags = emptyMap(), sites = emptyMap(), favoritesOnly = false)
+    /** Clears tags, sites, favorites, resolution and chapters; the length (time) filter stays, as do search and sort. */
+    fun clearFilters() = copy(tags = emptyMap(), sites = emptyMap(), favoritesOnly = false, resolution = null, chapters = null)
 
-    /** Something "Clear" would remove: a search, tags, sites or favorites only (not the length filter). */
-    val clearable: Boolean get() = query.isNotBlank() || tags.isNotEmpty() || sites.isNotEmpty() || favoritesOnly
+    /** Something "Clear" would remove: a search, or any filter but the length one. */
+    val clearable: Boolean
+        get() = query.isNotBlank() || tags.isNotEmpty() || sites.isNotEmpty() || favoritesOnly || resolution != null || chapters != null
 
     internal fun include(map: Map<String, Boolean>) = map.filterValues { it }.keys.joinToString(",").ifEmpty { null }
     internal fun exclude(map: Map<String, Boolean>) = map.filterValues { !it }.keys.joinToString(",").ifEmpty { null }
@@ -153,6 +171,21 @@ data class VideoFilter(
             false -> map - key
         }
     }
+}
+
+/** The web app's Resolution filter: each is a minimum (HD = 720p and up, also cropped ones). */
+enum class ResolutionFilter(val value: String, val label: String) {
+    UHD("4k", "4K"),
+    HD("hd", "HD (720p and up)"),
+    SD_HIGH("sdhigh", "SD high (480p and up)"),
+    SD_LOW("sdlow", "SD low (anything)"),
+}
+
+/** Chapters in the file, or markers (yours or made from chapters). */
+enum class ChaptersFilter(val keyword: String, val label: String) {
+    HAS_CHAPTERS("chapters:yes", "Has chapters"),
+    NO_CHAPTERS("chapters:no", "No chapters"),
+    HAS_MARKERS("markers:yes", "Has markers"),
 }
 
 /** The web app's length buttons. */

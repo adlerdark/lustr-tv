@@ -239,7 +239,7 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
     }
 
     private fun HttpUrl.Builder.addFilter(filter: VideoFilter) {
-        addQueryParameter("query", filter.query)
+        addQueryParameter("query", filter.serverQuery)
         filter.include(filter.tags)?.let { addQueryParameter("tags", it) }
         filter.exclude(filter.tags)?.let { addQueryParameter("tags_exclude", it) }
         filter.include(filter.sites)?.let { addQueryParameter("sites", it) }

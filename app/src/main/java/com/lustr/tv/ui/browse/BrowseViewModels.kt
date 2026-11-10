@@ -46,7 +46,7 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
     private val _sidebar = MutableStateFlow(SidebarState())
     val sidebar: StateFlow<SidebarState> = _sidebar
 
-    /** The tab each library was left on (this session); a library opens on Recommended, like the web app. */
+    /** The tab each library was left on (this session); a library opens on the tab set in the web app (Recommended by default). */
     private val _tabs = MutableStateFlow<Map<String, LibraryTab>>(emptyMap())
     val tabs: StateFlow<Map<String, LibraryTab>> = _tabs
 
@@ -58,7 +58,7 @@ class BrowseViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             if (_tree.value !is Load.Ready) _tree.value = Load.Loading
             _tree.value = when (val r = container.load { this.init() }) {
-                is Load.Ready -> Load.Ready(LibraryTree.build(r.value))
+                is Load.Ready -> Load.Ready(LibraryTree.build(r.value)).also { container.init = r.value }
                 is Load.Failed -> r
                 Load.Loading -> Load.Loading
             }
@@ -115,8 +115,19 @@ class RowsViewModel(private val container: AppContainer, private val library: St
 class LibraryViewModel(private val container: AppContainer, private val library: String) : ViewModel() {
     private val seed = Random.nextInt(1, 1_000_000)          // a Random sort keeps its order between pages
 
-    /** Starts with the default length filter from Settings (e.g. no videos under 2 minutes). */
-    private val _filter = MutableStateFlow(VideoFilter(lengths = container.settings.value.defaultLengths))
+    /**
+     * Starts with the default length filter from Settings (e.g. no videos under 2 minutes) and the
+     * sort the library opens with in the web app (Settings -> Browsing; Title when none is set).
+     */
+    private val _filter = MutableStateFlow(
+        container.init?.openingFor(library).let { opening ->
+            VideoFilter(
+                lengths = container.settings.value.defaultLengths,
+                sortBy = opening?.sort?.value ?: SortOption.TITLE.value,
+                descending = opening?.descending ?: false,
+            )
+        },
+    )
     val filter: StateFlow<VideoFilter> = _filter
 
     val pager = Pager<Video>(viewModelScope, pageSize = 48, onError = container::onError) { page, limit ->

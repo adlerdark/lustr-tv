@@ -47,7 +47,7 @@ fun SearchResults(container: AppContainer, query: String, imageUrl: ImageUrl, on
         when (m) {
             Load.Loading -> CenteredMessage("Loading…")
             is Load.Failed -> CenteredMessage(m.message) { Button(onClick = { openMovie = null }) { Text("Back") } }
-            is Load.Ready -> MovieDetailContent(m.value, imageUrl, onPlay, onBack = { openMovie = null })
+            is Load.Ready -> MovieDetailContent(container, m.value, imageUrl, onPlay, onCast, onBack = { openMovie = null })
         }
         return
     }

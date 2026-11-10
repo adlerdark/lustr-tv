@@ -1,0 +1,104 @@
+{
+ "success": true,
+ "video_id": "TestLib_Feature",
+ "path": "/media/TestLib/Feature/Feature cd1.mp4",
+ "duration": 24.0,
+ "width": 320,
+ "height": 240,
+ "codec": "h264",
+ "audio": true,
+ "audio_channels": 1,
+ "audio_codec": "aac",
+ "bit_rate": 114,
+ "cache_id": "761912f8935f2b8ff5157ff5df7acf68",
+ "sources": [
+  {
+   "kind": "direct",
+   "label": "Direct",
+   "res": "direct",
+   "likely": true,
+   "type": "video/mp4",
+   "src": "/files/media/TestLib/Feature/Feature%20cd1.mp4"
+  },
+  {
+   "kind": "hls",
+   "label": "HLS Original (240p)",
+   "res": "original",
+   "likely": true,
+   "type": "application/x-mpegURL",
+   "src": "/api/player/hls/original/index.m3u8?path=%2Fmedia%2FTestLib%2FFeature%2FFeature%20cd1.mp4"
+  }
+ ],
+ "start_source": 0,
+ "sprite": {
+  "ready": false,
+  "cache_ids": [
+   "761912f8935f2b8ff5157ff5df7acf68",
+   "889f23946d559817434ba4e3df88dfbc"
+  ],
+  "vtt": "/api/player/sprites/joined.vtt?video_id=TestLib_Feature&v=0",
+  "queued": true
+ },
+ "parts": [
+  {
+   "path": "/media/TestLib/Feature/Feature cd1.mp4",
+   "part": 1,
+   "offset": 0.0,
+   "duration": 12.0,
+   "cache_id": "761912f8935f2b8ff5157ff5df7acf68",
+   "width": 320,
+   "height": 240,
+   "sources": [
+    {
+     "kind": "direct",
+     "label": "Direct",
+     "res": "direct",
+     "likely": true,
+     "type": "video/mp4",
+     "src": "/files/media/TestLib/Feature/Feature%20cd1.mp4"
+    },
+    {
+     "kind": "hls",
+     "label": "HLS Original (240p)",
+     "res": "original",
+     "likely": true,
+     "type": "application/x-mpegURL",
+     "src": "/api/player/hls/original/index.m3u8?path=%2Fmedia%2FTestLib%2FFeature%2FFeature%20cd1.mp4"
+    }
+   ]
+  },
+  {
+   "path": "/media/TestLib/Feature/Feature cd2.mp4",
+   "part": 2,
+   "offset": 12.0,
+   "duration": 12.0,
+   "cache_id": "889f23946d559817434ba4e3df88dfbc",
+   "width": 320,
+   "height": 240,
+   "sources": [
+    {
+     "kind": "direct",
+     "label": "Direct",
+     "res": "direct",
+     "likely": true,
+     "type": "video/mp4",
+     "src": "/files/media/TestLib/Feature/Feature%20cd2.mp4"
+    },
+    {
+     "kind": "hls",
+     "label": "HLS Original (240p)",
+     "res": "original",
+     "likely": true,
+     "type": "application/x-mpegURL",
+     "src": "/api/player/hls/original/index.m3u8?path=%2Fmedia%2FTestLib%2FFeature%2FFeature%20cd2.mp4"
+    }
+   ]
+  }
+ ],
+ "chapters_added": 0,
+ "captions": {
+  "tracks": [],
+  "queued": false,
+  "whisper": false
+ }
+}

@@ -18,6 +18,12 @@ data class TvSettings(
     /** Show captions when a video has them. */
     val subtitlesOn: Boolean = false,
     val subtitleSize: SubtitleSize = SubtitleSize.NORMAL,
+    /** How captions look - the TV's own choice, separate from the web app's (Settings -> Caption look). */
+    val captionColor: CaptionColor = CaptionColor.WHITE,
+    val captionBackground: CaptionBackground = CaptionBackground.HALF,
+    val captionEdge: CaptionEdge = CaptionEdge.DROP_SHADOW,
+    val captionFont: CaptionFont = CaptionFont.SANS,
+    val captionPosition: CaptionPosition = CaptionPosition.BOTTOM,
     val zoom: VideoZoom = VideoZoom.FIT,
     /** Let the TV switch its refresh rate to the video's (only when the switch is seamless). */
     val matchFrameRate: Boolean = true,
@@ -44,6 +50,22 @@ data class TvSettings(
 enum class ResumeMode(val label: String) { ALWAYS("Resume where I left off"), ASK("Ask each time"), NEVER("Always start from the beginning") }
 
 enum class SubtitleSize(val label: String, val scale: Float) { SMALL("Small", 0.8f), NORMAL("Normal", 1f), LARGE("Large", 1.3f), HUGE("Very large", 1.7f) }
+
+/** Caption text colour, as 0xAARRGGBB. */
+enum class CaptionColor(val label: String, val argb: Long) {
+    WHITE("White", 0xFFFFFFFF), YELLOW("Yellow", 0xFFFFE000), CYAN("Cyan", 0xFF00E5FF), GREEN("Green", 0xFF4CFF4C),
+}
+
+/** The box behind caption text: black, this opaque (0-255). */
+enum class CaptionBackground(val label: String, val alpha: Int) {
+    NONE("None", 0), QUARTER("Black, 25 %", 64), HALF("Black, 50 %", 128), MOST("Black, 75 %", 191), SOLID("Black", 255),
+}
+
+enum class CaptionEdge(val label: String) { NONE("None"), OUTLINE("Outline"), DROP_SHADOW("Drop shadow"), RAISED("Raised"), DEPRESSED("Depressed") }
+
+enum class CaptionFont(val label: String) { SANS("Sans serif"), SERIF("Serif"), MONO("Monospace"), CASUAL("Casual") }
+
+enum class CaptionPosition(val label: String) { BOTTOM("Bottom"), TOP("Top") }
 
 enum class VideoZoom(val label: String) { FIT("Fit (black bars)"), ZOOM("Zoom to fill (crops)"), STRETCH("Stretch") }
 

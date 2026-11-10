@@ -1,13 +1,16 @@
 package com.lustr.tv.ui.settings
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,8 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -35,6 +40,11 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
+import com.lustr.tv.core.CaptionBackground
+import com.lustr.tv.core.CaptionColor
+import com.lustr.tv.core.CaptionEdge
+import com.lustr.tv.core.CaptionFont
+import com.lustr.tv.core.CaptionPosition
 import com.lustr.tv.core.DisplayFilter
 import com.lustr.tv.core.LengthRange
 import com.lustr.tv.core.ResumeMode
@@ -139,6 +149,15 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onChangeServer: 
             }
         }
         item { SettingRow("Caption size", s.subtitleSize.label) { change { it.copy(subtitleSize = SubtitleSize.entries.after(it.subtitleSize)) } } }
+
+        heading("Caption look")
+        item { Note("This TV's own choice; the web app keeps its own.") }
+        item { CaptionSample(s) }
+        item { SettingRow("Text colour", s.captionColor.label) { change { it.copy(captionColor = CaptionColor.entries.after(it.captionColor)) } } }
+        item { SettingRow("Background", s.captionBackground.label) { change { it.copy(captionBackground = CaptionBackground.entries.after(it.captionBackground)) } } }
+        item { SettingRow("Edge", s.captionEdge.label) { change { it.copy(captionEdge = CaptionEdge.entries.after(it.captionEdge)) } } }
+        item { SettingRow("Font", s.captionFont.label) { change { it.copy(captionFont = CaptionFont.entries.after(it.captionFont)) } } }
+        item { SettingRow("Position", s.captionPosition.label) { change { it.copy(captionPosition = CaptionPosition.entries.after(it.captionPosition)) } } }
         item { SettingRow("Picture", s.zoom.label) { change { it.copy(zoom = VideoZoom.entries.after(it.zoom)) } } }
         item {
             SettingRow("Match frame rate", if (s.matchFrameRate) "On (when the TV can switch seamlessly)" else "Off", on = s.matchFrameRate) {
@@ -181,6 +200,34 @@ private fun LazyListScope.heading(text: String) {
             fontWeight = FontWeight.Bold,
             color = LustrColors.primarySoft,
             modifier = Modifier.padding(start = 12.dp, top = 24.dp, bottom = 6.dp),
+        )
+    }
+}
+
+/** A line of caption text in the chosen colour, background and font (the edge shows in the player). */
+@Composable
+private fun CaptionSample(s: TvSettings) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .background(Color(0xFF3A4A5A), RoundedCornerShape(8.dp))
+            .padding(vertical = 20.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "This is how captions will look",
+            color = Color(s.captionColor.argb),
+            fontSize = (22 * s.subtitleSize.scale).sp,
+            fontFamily = when (s.captionFont) {
+                CaptionFont.SANS -> FontFamily.SansSerif
+                CaptionFont.SERIF -> FontFamily.Serif
+                CaptionFont.MONO -> FontFamily.Monospace
+                CaptionFont.CASUAL -> FontFamily.Cursive
+            },
+            modifier = Modifier
+                .background(Color.Black.copy(alpha = s.captionBackground.alpha / 255f))
+                .padding(horizontal = 8.dp, vertical = 2.dp),
         )
     }
 }

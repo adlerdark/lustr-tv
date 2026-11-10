@@ -1,6 +1,6 @@
 # lustr server API (as used by the TV app)
 
-Mapped from lustr 0.6.1 (`web_server.py`, `routes/*.py`, `database.py`). FastAPI, port 8008, JSON.
+Mapped from lustr 0.6.1 (`web_server.py`, `routes/*.py`, `database.py`) and checked against 0.27.0. FastAPI, port 8008, JSON.
 
 ## Login
 
@@ -34,11 +34,11 @@ listed). Metadata lives on the video; codec/size/length on the file version.
 | `GET /api/health` | `{status: "ok", version}` |
 | `GET /api/check_auth` | `{authenticated, username}` (doesn't count as activity) |
 | `POST /api/login` / `POST /api/logout` | cookie set / cleared |
-| `GET /api/init` | `libraries {name: [folders]}`, `library_order`, `hidden_libraries`, `library_groups`, `tags`, `sites`, UI config |
+| `GET /api/init` | `libraries {name: [folders]}`, `library_order`, `hidden_libraries`, `library_groups`, `tags`, `sites`, `config` (UI config: `default_tab`, `default_sort`, `default_sort_desc`, `library_defaults {name: {tab, sort, desc}}` – 0.16+), `library_settings {name: {content: "images" / "videos" / "both", …}}` (0.20+) |
 | `GET /api/home?library=` | `{success, rows: [{key, title, items: [Video], see_all}]}` (cached 60 s server-side; progress posts invalidate it) |
 | `GET /api/videos?library=&query=&sort_by=&desc=&page=&limit=` | `{items: [Video], total, page, limit, letters}` |
-| `GET /api/video?path=` | one `Video` (+ `library`, `versions`) |
-| `GET /api/player/streams?path=` | `{duration, width, height, codec, sources: [{kind, label, res, likely, type, src}], start_source, sprite: {ready, vtt}, captions: {tracks: [{lang, label, src}]}}` |
+| `GET /api/video?path=` | one `Video` (+ `library`, `versions`; a multi-part video: `parts: [{path, filename, part, length, length_seconds, resolution, codec, file_size, cache_id}]` instead, and the total `length` – 0.25+) |
+| `GET /api/player/streams?path=` | `{duration, width, height, codec, sources: [{kind, label, res, likely, type, src}], start_source, sprite: {ready, vtt}, captions: {tracks: [{lang, label, src}]}}`. A multi-part video (0.25+): `path` = part 1, `duration` = the total, `sources` = the qualities every part has, `parts: [{path, part, offset, duration, sources}]`, `sprite.vtt` = `/api/player/sprites/joined.vtt?video_id=` (one timeline), no captions; progress is posted for part 1's path with the time on the whole timeline |
 | `GET /files/<path>` | the original file, with HTTP range support (206) |
 | `GET /api/player/hls/{res}/index.m3u8?path=` | VOD HLS playlist (2 s segments, `#EXT-X-ENDLIST`); `res` = `original`, `1080`, `720`, `480`, `240` |
 | `POST /api/watch/progress` | body `{path, current_time, duration, play_id, played, log_only}` – resume point + Play History |
@@ -46,7 +46,7 @@ listed). Metadata lives on the video; codec/size/length on the file version.
 | `GET /api/collections?library=` | `{success, collections: [{id, name, kind: "collection"/"smart", description, count, cover}]}` (all of them for All Videos) |
 | `GET /api/collections/{id}/items?page=&limit=` | `{success, collection, items: [Video], total}` |
 | `GET /api/movies?library=&q=&sort=title&page=&limit=` | `{success, movies: [{id, title, display, year, studio, count, has_cover, cover, favorite}], total}` |
-| `GET /api/movies/{id}` | `{success, movie: {…, description, director, runtime (min), tags}, items: [Video with movie_scene]}` |
+| `GET /api/movies/{id}` | `{success, movie: {…, description, director, runtime (min), tags, cast (your performers, unlinked movies), ext_cast: [{name, credited, gender, image (ThePornDB's – not loaded by the TV), local, in_movie}]}, items: [Video with movie_scene]}` |
 
 | `GET /api/movies/filters?library=&q=&tags=…&favorites=` | `{success, tags: {name: count}, sites: {name: count}}` among the movies the filters leave |
 | `POST /api/toggle_fav` | body `{path}` → `{favorite: true/false}` |
@@ -63,6 +63,10 @@ listed). Metadata lives on the video; codec/size/length on the file version.
 as comma-separated `from-to` second ranges (`0-120,2400-28800`). Sorts: `Title`, `Filename`,
 `Date Created`, `Length`, `File Size`, `Rating`, `Recently Added`, `Most Played`, `Last Played`,
 `Time Watched`, `Random` (with `seed` for stable paging).
+
+Search keywords the TV adds to `query` for its filters: `res:4k|hd|sdhigh|sdlow` (a minimum, by the
+short side; 0.19+), `chapters:yes|no`, `markers:yes|no` (0.17+). Wildcards `*` / `%` work in field
+values since 0.26 (`cast:jane*`, `site:*tube`).
 
 ### Sidebar (index.html: `visibleLibraries`)
 

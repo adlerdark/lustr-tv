@@ -152,7 +152,7 @@ fun BrowseScreen(
                         key(query) { SearchResults(container, query, client::absoluteUrl, onPlay, onCast) }
                     }
                     else -> {
-                        val tab = tabs[library] ?: LibraryTab.RECOMMENDED
+                        val tab = tabs[library] ?: container.init?.openingFor(library)?.tab ?: LibraryTab.RECOMMENDED
                         Column {
                             Header(title = library) {
                                 TabBar(LibraryTab.entries.map { it.label }, selected = tab.ordinal, onSelect = { vm.selectTab(library, LibraryTab.entries[it]) })
@@ -162,7 +162,7 @@ fun BrowseScreen(
                                     LibraryTab.RECOMMENDED -> RecommendedTab(container, library, client::absoluteUrl, onPlay)
                                     LibraryTab.LIBRARY -> LibraryTabContent(container, library, client::absoluteUrl, onPlay)
                                     LibraryTab.COLLECTIONS -> CollectionsTab(container, library, client::absoluteUrl, onPlay)
-                                    LibraryTab.MOVIES -> MoviesTab(container, library, client::absoluteUrl, onPlay)
+                                    LibraryTab.MOVIES -> MoviesTab(container, library, client::absoluteUrl, onPlay, onCast)
                                 }
                             }
                         }

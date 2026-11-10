@@ -166,22 +166,38 @@ private fun FileInfoDialog(container: AppContainer, path: String, onDismiss: () 
                         "Movie" to d.movie,
                         "Cast" to d.cast.joinToString(", "),
                     )
-                    val files = d.versions.ifEmpty {
-                        listOf(FileVersion(d.path, d.filename, d.resolution, d.codec, d.extension, d.length, d.totalBitrate, d.fileSize, d.cacheId, 1))
-                    }
-                    files.forEachIndexed { i, f ->
-                        item { FileHeading(if (files.size == 1) "File" else "Version ${i + 1}" + if (f.isPreferred != 0) " (preferred)" else "") }
-                        infoRows(
-                            "Filename" to f.filename,
-                            "Full path" to f.path,
-                            "Cache ID" to f.cacheId,
-                            "Resolution" to f.resolution,
-                            "Codec" to f.codec,
-                            "Container" to f.extension,
-                            "Size" to f.fileSize,
-                            "Length" to f.length,
-                            "Bitrate" to f.totalBitrate,
-                        )
+                    if (d.parts.size > 1) {
+                        // a multi-part video: its files, played one after the other as one video
+                        item { InfoRow("Parts", "${d.parts.size} files, ${d.length.orEmpty()} in all – played as one video") }
+                        d.parts.forEach { p ->
+                            item { FileHeading("Part ${p.part}") }
+                            infoRows(
+                                "Filename" to p.filename,
+                                "Full path" to p.path,
+                                "Resolution" to p.resolution,
+                                "Codec" to p.codec,
+                                "Size" to p.fileSize,
+                                "Length" to p.length,
+                            )
+                        }
+                    } else {
+                        val files = d.versions.ifEmpty {
+                            listOf(FileVersion(d.path, d.filename, d.resolution, d.codec, d.extension, d.length, d.totalBitrate, d.fileSize, d.cacheId, 1))
+                        }
+                        files.forEachIndexed { i, f ->
+                            item { FileHeading(if (files.size == 1) "File" else "Version ${i + 1}" + if (f.isPreferred != 0) " (preferred)" else "") }
+                            infoRows(
+                                "Filename" to f.filename,
+                                "Full path" to f.path,
+                                "Cache ID" to f.cacheId,
+                                "Resolution" to f.resolution,
+                                "Codec" to f.codec,
+                                "Container" to f.extension,
+                                "Size" to f.fileSize,
+                                "Length" to f.length,
+                                "Bitrate" to f.totalBitrate,
+                            )
+                        }
                     }
                 }
             }

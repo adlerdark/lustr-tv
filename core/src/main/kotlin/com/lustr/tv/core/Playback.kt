@@ -37,6 +37,15 @@ object Playback {
         return listOf(first) + base.filter { it != first }
     }
 
+    /**
+     * A multi-part video's files for [source] (one of the qualities every part has): each part's
+     * source of that quality, in order. Null for a single file, or when a part lacks it.
+     */
+    fun partSources(info: StreamInfo, source: StreamSource): List<StreamSource>? {
+        if (info.parts.size < 2) return null
+        return info.parts.map { part -> part.sources.firstOrNull { it.res == source.res } ?: return null }
+    }
+
     /** Where to start, in seconds: the saved resume point, unless it's at the very start or end. */
     fun startPosition(resumeAt: Double?, duration: Double): Double {
         val at = resumeAt ?: return 0.0

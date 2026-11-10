@@ -45,8 +45,10 @@ import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
+import com.lustr.tv.core.ChaptersFilter
 import com.lustr.tv.core.FilterCounts
 import com.lustr.tv.core.LengthRange
+import com.lustr.tv.core.ResolutionFilter
 import com.lustr.tv.core.SortOption
 import com.lustr.tv.core.VideoFilter
 import com.lustr.tv.ui.components.TvTextField
@@ -174,7 +176,7 @@ fun SortDialog(current: VideoFilter, onPick: (VideoFilter) -> Unit, onDismiss: (
 }
 
 /**
- * Favorites, length, tags and sites. A tag / site cycles: off -> ✓ must have -> ✕ must not have -> off.
+ * Favorites, length, resolution, chapters, tags and sites. A tag / site cycles: off -> ✓ must have -> ✕ must not have -> off.
  * Changes apply straight away (the grid behind updates); the counts follow the other filters.
  */
 @Composable
@@ -214,6 +216,17 @@ fun FilterDialog(
                 item { Heading("Length") }
                 items(LengthRange.entries) { range ->
                     ChoiceRow(range.label, onClick = { onChange(filter.toggleLength(range.value)) }, marker = if (range.value in filter.lengths) "✓" else "")
+                }
+                // lustr 0.17+ / 0.19+ (older servers ignore them); one of each at a time, press again to turn off
+                item { Heading("Resolution (at least)") }
+                items(ResolutionFilter.entries) { r ->
+                    ChoiceRow(r.label, onClick = { onChange(filter.copy(resolution = r.takeIf { it != filter.resolution })) },
+                        marker = if (r == filter.resolution) "✓" else "")
+                }
+                item { Heading("Chapters") }
+                items(ChaptersFilter.entries) { c ->
+                    ChoiceRow(c.label, onClick = { onChange(filter.copy(chapters = c.takeIf { it != filter.chapters })) },
+                        marker = if (c == filter.chapters) "✓" else "")
                 }
             }
             tagSection("Tags", counts?.tags, filter.tags, pinnedTags, counts == null) { onChange(filter.cycleTag(it)) }

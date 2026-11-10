@@ -2,7 +2,11 @@ package com.lustr.tv.core
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
 
 // JSON shapes returned by the lustr server. Only the fields the TV app uses are listed;
 // everything else in a response is ignored (see LustrClient.json).
@@ -109,6 +113,8 @@ data class Video(
     val movie: String? = null,
     /** Every file of this video, when there is more than one (/api/video only). */
     val versions: List<FileVersion> = emptyList(),
+    /** A multi-part video (lustr 0.25+: one video in several files, cd1 / cd2 ...), in order; empty otherwise. */
+    val parts: List<VideoPart> = emptyList(),
     /** Resume point in seconds (only present when there is one). */
     @SerialName("watch_progress") val watchProgress: Double? = null,
     @SerialName("watch_duration") val watchDuration: Double? = null,
@@ -150,6 +156,18 @@ data class FileVersion(
     @SerialName("file_size") val fileSize: String? = null,
     @SerialName("cache_id") val cacheId: String? = null,
     @SerialName("is_preferred") val isPreferred: Int = 0,
+)
+
+/** One file of a multi-part video. [length] is "HH:MM:SS". */
+@Serializable
+data class VideoPart(
+    val path: String,
+    val filename: String = "",
+    val part: Int = 0,
+    val length: String? = null,
+    val resolution: String? = null,
+    val codec: String? = null,
+    @SerialName("file_size") val fileSize: String? = null,
 )
 
 /** GET /api/cast/all */
@@ -231,7 +249,10 @@ data class HomeRow(
     @SerialName("see_all") val seeAll: JsonObject? = null,
 )
 
-/** GET /api/init: libraries, groups and the display filter (other fields are ignored for now). */
+/** What a library opens with: [tab] and [sort] / [descending] (null = the TV's own default). */
+data class LibraryOpening(val tab: LibraryTab? = null, val sort: SortOption? = null, val descending: Boolean? = null)
+
+/** GET /api/init: libraries, groups, the display filter and what libraries open with (other fields are ignored). */
 @Serializable
 data class InitData(
     /** library name -> its folders */
@@ -247,7 +268,30 @@ data class InitData(
     @SerialName("display_types") val displayTypes: List<String> = emptyList(),
     /** The types this viewer chose to see (all of them = no filtering). */
     @SerialName("display_filter") val displayFilter: List<String> = emptyList(),
+    /** The web app's UI settings; the TV reads what a library opens with (see [openingFor]). */
+    val config: JsonObject? = null,
+    /** library name -> its settings (sort, content: "images" for an images-only library, ...). */
+    @SerialName("library_settings") val librarySettings: Map<String, JsonElement> = emptyMap(),
 ) {
+    /** "both", "videos" or "images" (lustr 0.20+); null when the server doesn't say. */
+    fun libraryContent(name: String): String? =
+        ((librarySettings[name] as? JsonObject)?.get("content") as? JsonPrimitive)?.contentOrNull
+
+    /**
+     * What a library (or group) opens with, as set in the web app (Settings -> Browsing, lustr 0.16+):
+     * its own override, else the default. Sorts the TV doesn't have are left to the TV's own default.
+     */
+    fun openingFor(name: String): LibraryOpening {
+        val c = config ?: return LibraryOpening()
+        val own = (c["library_defaults"] as? JsonObject)?.get(name) as? JsonObject
+        fun text(o: JsonObject?, key: String) = (o?.get(key) as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+        fun flag(o: JsonObject?, key: String) = (o?.get(key) as? JsonPrimitive)?.booleanOrNull
+        val tab = (text(own, "tab") ?: text(c, "default_tab"))?.let { t -> LibraryTab.entries.firstOrNull { it.name.equals(t, ignoreCase = true) } }
+        val (sortName, desc) = text(own, "sort")?.let { it to flag(own, "desc") } ?: (text(c, "default_sort") to flag(c, "default_sort_desc"))
+        val sort = SortOption.entries.firstOrNull { it.value == sortName }
+        return LibraryOpening(tab, sort, if (sort != null) desc ?: sort.descendingByDefault else null)
+    }
+
     /** Library names in the order the owner set, without hidden ones. */
     val visibleLibraries: List<String>
         get() = (libraryOrder + libraries.keys.filter { it !in libraryOrder })
@@ -326,9 +370,30 @@ data class Movie(
     @SerialName("has_cover") val hasCover: Boolean = false,
     /** Relative URL of the cover, or null. */
     val cover: String? = null,
+    /** The movie's own tags (detail). */
+    val tags: List<String> = emptyList(),
+    /** Your performers in it, most scenes first (detail; only when it isn't linked to ThePornDB). */
+    val cast: List<String> = emptyList(),
+    /** The ThePornDB cast (detail; linked movies), matched to your performers. */
+    @SerialName("ext_cast") val extCast: List<ExtCastMember> = emptyList(),
 ) {
+    /** Your performers in this movie, for the movie page: the linked cast you have, else its scenes' cast. */
+    val performers: List<String>
+        get() = (extCast.sortedByDescending { it.inMovie }.mapNotNull { it.local?.takeIf { n -> n.isNotBlank() } } + cast).distinct()
+
     val displayTitle: String get() = display?.takeIf { it.isNotBlank() } ?: title.orEmpty()
 }
+
+/**
+ * One of a linked movie's ThePornDB performers. [local] is your performer of that name (null when
+ * you don't have them); [image] is on ThePornDB's servers, so the TV never loads it.
+ */
+@Serializable
+data class ExtCastMember(
+    val name: String = "",
+    val local: String? = null,
+    @SerialName("in_movie") val inMovie: Boolean = false,
+)
 
 /** GET /api/movies/{id}: the movie and its scenes in order. */
 @Serializable
@@ -364,6 +429,18 @@ data class StreamInfo(
     val captions: CaptionInfo? = null,
     /** Seek-bar previews (chapter thumbnails come from them). */
     val sprite: SpriteInfo? = null,
+    /** A multi-part video (lustr 0.25+): every part's file, played one after the other as one timeline. */
+    val parts: List<StreamPart> = emptyList(),
+)
+
+/** One file of a multi-part video in /api/player/streams; [offset] = where it starts on the whole timeline (s). */
+@Serializable
+data class StreamPart(
+    val path: String,
+    val part: Int = 0,
+    val offset: Double = 0.0,
+    val duration: Double = 0.0,
+    val sources: List<StreamSource> = emptyList(),
 )
 
 @Serializable

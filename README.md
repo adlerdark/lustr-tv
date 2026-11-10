@@ -40,19 +40,22 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
 - **Home** has two tabs: **Recommended** – the same rows as lustr's web Home (Continue Watching,
   Recently Added, Because you watched…, Favorites, …), refreshed whenever you come back – and
   **Cast** (below).
-- Every library / group has the web app's tabs:
+- Every library / group has the web app's tabs. It opens on the tab and sort set in the web app
+  (Settings → Browsing, and each library's own override); Recommended and Title when none is set.
+  Libraries that hold only images (no videos) are left out of the sidebar.
   - **Recommended** – that library's Home rows.
   - **Library** – every video, paged as you scroll; sorted by Title, Cast or File name it has a
     **#–Z bar** on the right to jump to a letter. **Search** (with lustr's search syntax, e.g.
     `cast:jane*`), **Sort** (pick the same sort again to reverse it), and **Filters**: favorites only,
-    length, and tags / sites with counts – press once for ✓ (must have), again for ✕ (must not have),
+    length, resolution (at least 4K / HD / SD), chapters / markers, and tags / sites with counts – press once for ✓ (must have), again for ✕ (must not have),
     again to clear. The tags / sites that are on are listed at the top of Filters, the rest by
-    count. **Clear** removes the search, tags, sites and favorites but keeps the length filter.
+    count. **Clear** removes everything but the length filter.
   - **Collections** – hand-picked and smart collections; open one to see its videos. **▶ Play all**
     plays them one after another; starting any video of it does the same from that video on.
   - **Movies** – posters (upright, 2:3) with Search, Sort (title, year, most scenes, recently added,
     favorites first), Filters (favorites, tags and sites with counts) and, sorted by title, the #–Z
-    bar; open one for its details and its scenes in order (landscape). **▶ Play all** plays the
+    bar; open one for its details, tags, cast (your performers – each opens their page) and its
+    scenes in order (landscape). **▶ Play all** plays the
     scenes in order; starting any scene plays the ones after it too.
 - **Cast** (Home's second tab): everyone with their photo – Search (names and aliases), Sort (most
   videos / name), Women / Men / Trans, Pro / Amateur / Celeb, Favorites only. A performer's page shows their photo, details, aliases,
@@ -84,9 +87,13 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
   - **OK / ▲ / ▼** show the controls: progress bar, Play/Pause, −/+, **CC**, **⚙ Settings**
     (quality – direct play or a transcode at original / 1080p / 720p / … –, captions, audio track,
     speed, picture zoom). **Back** hides them, Back again leaves the player.
+- **Multi-part videos** (one video in several files – cd1, cd2 …, joined in the web app; lustr 0.25+)
+  show "2 parts" on their card and play as one video: one progress bar, seeking across the parts,
+  previews and chapters over the whole thing. File info lists the parts.
 - **Settings** (sidebar): the Library tab's default length filter (by default videos under 2 minutes
   are hidden), the orientation filter (the server's display filter, shared with the web app), start
-  quality, seek step, resume (always / ask / never), captions on/off and size, picture zoom, frame-rate
+  quality, seek step, resume (always / ask / never), captions on/off and size, **caption look** (text
+  colour, background, edge, font, position – the TV's own, the web app keeps its own), picture zoom, frame-rate
   matching, privacy screen (no preview in recent apps, no screenshots), server, log out.
 
 ### Transcoding

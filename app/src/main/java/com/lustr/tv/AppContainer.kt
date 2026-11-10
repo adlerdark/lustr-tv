@@ -5,6 +5,7 @@ import android.view.KeyEvent
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.core.content.edit
 import com.lustr.tv.core.CookieStorage
+import com.lustr.tv.core.InitData
 import com.lustr.tv.core.LustrClient
 import com.lustr.tv.core.LustrException
 import com.lustr.tv.core.PersistentCookieJar
@@ -124,6 +125,10 @@ class AppContainer(context: Context) {
      * way back – the card of this video path, or [FOCUS_CONTENT]: just the content, not the sidebar.
      */
     var returnFocusTo: String? = null
+
+    /** The last /api/init (BrowseViewModel): what each library opens with (lustr 0.16+). */
+    @Volatile
+    var init: InitData? = null
 
     /** What the player is going through (a collection / movie), set just before it opens; null = one video. */
     var queue: PlayQueue? = null
