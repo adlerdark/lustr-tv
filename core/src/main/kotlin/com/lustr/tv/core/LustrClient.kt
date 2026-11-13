@@ -4,8 +4,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
@@ -152,6 +157,15 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
             addMovieFilter(filter)
         })
 
+    /** Sets a video's rating in stars (0.5 - 5), or clears it with null (lustr 1.1+: half stars). */
+    suspend fun setRating(path: String, stars: Double?) {
+        val body = buildJsonObject {
+            putJsonArray("paths") { add(path) }
+            putJsonObject("updates") { put("rating", stars?.let { Stars.value(it) } ?: "") }
+        }
+        post<JsonObject>(url("api/metadata/update"), body.toString())
+    }
+
     /** Favorite / not; returns the new state. */
     suspend fun toggleFavorite(path: String): Boolean =
         favoriteOf(post(url("api/toggle_fav"), json.encodeToString(PathBody.serializer(), PathBody(path))))
@@ -185,6 +199,12 @@ class LustrClient(val baseUrl: HttpUrl, private val http: OkHttpClient) {
 
     /** One video, with its current resume point. */
     suspend fun video(path: String): Video = get(url("api/video") { addQueryParameter("path", path) })
+
+    /** One video for Video info: the record and the raw reply, which holds custom fields too (lustr 1.2+). */
+    suspend fun videoDetails(path: String): VideoDetails {
+        val raw: JsonObject = get(url("api/video") { addQueryParameter("path", path) })
+        return VideoDetails(json.decodeFromJsonElement(Video.serializer(), raw), raw)
+    }
 
     /** The ways a file can be played: direct (original file) and HLS transcodes. */
     suspend fun streams(path: String): StreamInfo {

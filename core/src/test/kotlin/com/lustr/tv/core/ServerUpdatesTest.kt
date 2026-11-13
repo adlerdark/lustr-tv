@@ -139,4 +139,68 @@ class ServerUpdatesTest {
         // settings saved by an older app keep working, with the new ones at their defaults
         assertEquals(TvSettings().copy(seekStepSeconds = 30), TvSettings.decode("""{"seekStepSeconds": 30}"""))
     }
+
+    // ---- lustr 1.1: ratings in stars ----------------------------------------------------
+
+    @Test
+    fun stars() {
+        assertEquals(4.5, Stars.parse("4.5")!!, 0.0)
+        assertEquals(5.0, Stars.parse("9")!!, 0.0)                         // never above 5
+        assertNull(Stars.parse(""))
+        assertNull(Stars.parse("0"))
+        assertNull(Stars.parse("x"))
+        assertEquals("★★★★½", Stars.label(4.5))
+        assertEquals("★★★", Stars.label(3.0))
+        assertEquals("4", Stars.value(4.0))
+        assertEquals("0.5", Stars.value(0.5))
+        assertEquals(10, Stars.CHOICES.size)
+        assertEquals(5.0, Stars.CHOICES.first(), 0.0)
+        assertEquals(0.5, Stars.CHOICES.last(), 0.0)
+        assertEquals("jane stars:4", VideoFilter(query = "jane", minStars = 4).serverQuery)
+        assertNull(VideoFilter(minStars = 3).clearFilters().minStars)
+    }
+
+    @Test
+    fun setAndClearRating() = runTest {
+        server.enqueue(MockResponse().setBody("""{"updated": 1}"""))
+        server.enqueue(MockResponse().setBody("""{"updated": 1}"""))
+        client.setRating("/a b.mp4", 4.5)
+        client.setRating("/a b.mp4", null)
+        val set = server.takeRequest()
+        assertEquals("/api/metadata/update", set.path)
+        assertEquals("""{"paths":["/a b.mp4"],"updates":{"rating":"4.5"}}""", set.body.readUtf8())
+        assertEquals("""{"paths":["/a b.mp4"],"updates":{"rating":""}}""", server.takeRequest().body.readUtf8())
+    }
+
+    // ---- lustr 1.2: the field layout ----------------------------------------------------
+
+    @Test
+    fun fieldLayout() = runTest {
+        reply("init_1_2")         // Hair renamed "Hair colour", Cumshot hidden, a custom "Mood" field
+        val layout = client.init().fieldLayout!!
+        assertEquals("Hair colour", layout.label("hair"))
+        assertEquals("Mood", layout.label("mood"))
+        assertTrue("cumshot" !in layout.detailFields)
+        assertTrue("cast" !in layout.detailFields && "male_cast" !in layout.detailFields)
+        assertEquals(listOf("orientation", "site", "tags", "ethnicity"), layout.detailFields.take(4))
+        assertEquals("mood", layout.detailFields.last())
+
+        reply("video_1_2")        // Alpha Scene: 4.5 stars, hair blonde, mood dreamy
+        val d = client.videoDetails("/media/TestLib/Alpha Scene.mp4")
+        assertEquals(4.5, d.video.stars!!, 0.0)
+        val rows = d.rows(layout).toMap()
+        assertEquals(listOf("blonde"), rows["Hair colour"])
+        assertEquals(listOf("dreamy"), rows["Mood"])
+        assertTrue("Hair" !in rows)
+        // an older server (no layout): the fixed list, which has no custom fields
+        assertEquals(d.video.metadata, d.rows(null))
+        assertTrue(d.rows(null).none { it.first == "Mood" })
+    }
+
+    @Test
+    fun collectionsSayWhereFrom() = runTest {
+        reply("collections_1_2")
+        val list = client.collections(ALL_VIDEOS)
+        assertEquals("LibA", list.first { it.isSmart }.fromLabel)
+    }
 }

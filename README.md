@@ -46,8 +46,8 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
   - **Recommended** – that library's Home rows.
   - **Library** – every video, paged as you scroll; sorted by Title, Cast or File name it has a
     **#–Z bar** on the right to jump to a letter. **Search** (with lustr's search syntax, e.g.
-    `cast:jane*`), **Sort** (pick the same sort again to reverse it), and **Filters**: favorites only,
-    length, resolution (at least 4K / HD / SD), chapters / markers, and tags / sites with counts – press once for ✓ (must have), again for ✕ (must not have),
+    `cast:jane*`, and lustr 1.1's AND / OR / NOT), **Sort** (pick the same sort again to reverse it), and **Filters**: favorites only,
+    length, resolution (at least 4K / HD / SD), rating (at least ★ 1–5), chapters / markers, and tags / sites with counts – press once for ✓ (must have), again for ✕ (must not have),
     again to clear. The tags / sites that are on are listed at the top of Filters, the rest by
     count. **Clear** removes everything but the length filter.
   - **Collections** – hand-picked and smart collections; open one to see its videos. **▶ Play all**
@@ -63,10 +63,14 @@ Screens so far: **Server address → Sign in → Browse (sidebar + tabs) → Pla
   ★ marks them as a favorite (the only change you can make there).
 - **Moving previews**: rest on a video card for a moment and it plays through its preview frames,
   like hovering in the web app (Settings → Browsing → Moving previews turns it off).
+- **Ratings** (lustr 1.1+): rated videos show ★ and their stars on the card. **Rate…** (hold OK on a
+  video, in Video info, or ⚙ in the player) sets ½–5 stars or clears it; the web app sees it at once.
+  Favorites are hearts (♥), as in the web app.
 - **Hold OK on any video** (rows, grids, collections, movies, cast pages) for a menu: Play, **Play
   from start** (ignores where you left off; inside a collection / movie both carry on with the rest), add to /
   remove from favorites, **Video info** (the cast with photos – each opens their page – and all the
-  metadata tags, read-only) and **File info** (like the web app's: title, date added, library, movie,
+  metadata, read-only, with the fields named and ordered as in the web app – custom fields too, hidden
+  ones left out; lustr 1.2+) and **File info** (like the web app's: title, date added, library, movie,
   cast, and each file's name, path, cache ID, resolution, codec, container, size, length, bitrate).
   However long you hold OK, the menu stays open when you let go.
 - **Player** plays the original file directly (the Shield decodes MKV / HEVC / most formats itself, so

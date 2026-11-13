@@ -1,6 +1,6 @@
 # lustr server API (as used by the TV app)
 
-Mapped from lustr 0.6.1 (`web_server.py`, `routes/*.py`, `database.py`) and checked against 0.27.0. FastAPI, port 8008, JSON.
+Mapped from lustr 0.6.1 (`web_server.py`, `routes/*.py`, `database.py`) and checked against 0.27.0 and 1.2.0. FastAPI, port 8008, JSON.
 
 ## Login
 
@@ -65,7 +65,13 @@ as comma-separated `from-to` second ranges (`0-120,2400-28800`). Sorts: `Title`,
 `Time Watched`, `Random` (with `seed` for stable paging).
 
 Search keywords the TV adds to `query` for its filters: `res:4k|hd|sdhigh|sdlow` (a minimum, by the
-short side; 0.19+), `chapters:yes|no`, `markers:yes|no` (0.17+). Wildcards `*` / `%` work in field
+short side; 0.19+), `chapters:yes|no`, `markers:yes|no` (0.17+), `stars:N` (a minimum rating; 1.1+).
+
+Ratings (1.1+): `rating` is text, half stars `"0.5"`–`"5"` (`""` = none). The TV sets one with
+`POST /api/metadata/update {paths: [path], updates: {rating: "4.5"}}` (`""` clears it).
+Fields (1.2+): `/api/init.field_layout = {tabs: [{name, fields: [key]}], fields: {key: {label, hidden,
+performer, custom}}, performer: [key]}`; videos carry each list field (custom ones too) under its key.
+Collections (1.1+): `/api/collections` items have `from_label` (a library, a group or "Multiple libraries"). Wildcards `*` / `%` work in field
 values since 0.26 (`cast:jane*`, `site:*tube`).
 
 ### Sidebar (index.html: `visibleLibraries`)

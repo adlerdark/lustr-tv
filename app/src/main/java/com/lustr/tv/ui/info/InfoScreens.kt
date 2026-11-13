@@ -39,7 +39,9 @@ import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
 import com.lustr.tv.core.CastBio
 import com.lustr.tv.core.PagedState
+import com.lustr.tv.core.Stars
 import com.lustr.tv.core.Video
+import com.lustr.tv.core.VideoDetails
 import com.lustr.tv.core.categoryLabel
 import com.lustr.tv.core.genderLabel
 import com.lustr.tv.core.pretty
@@ -56,12 +58,15 @@ import kotlinx.coroutines.launch
 
 // ---- Video info ---------------------------------------------------------------------------------
 
-/** A video's cast (with photos, each opens their bio) and its metadata, read-only; Play and ★. */
+/**
+ * A video's cast (with photos, each opens their bio) and its metadata, read-only; Play, ♥ and Rate.
+ * The details follow the web app's fields (names, order, custom ones; lustr 1.2+).
+ */
 @Composable
 fun VideoInfoScreen(container: AppContainer, path: String, onPlay: (Video) -> Unit, onCast: (String) -> Unit) {
     val client = remember { container.client }
-    var video by remember { mutableStateOf<Load<Video>>(Load.Loading) }
-    LaunchedEffect(path) { video = container.load { video(path) } }
+    var video by remember { mutableStateOf<Load<VideoDetails>>(Load.Loading) }
+    LaunchedEffect(path) { video = container.load { videoDetails(path) } }
     val playFocus = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
     val actions = LocalVideoActions.current
@@ -70,8 +75,10 @@ fun VideoInfoScreen(container: AppContainer, path: String, onPlay: (Video) -> Un
         Load.Loading -> CenteredMessage("Loading…")
         is Load.Failed -> CenteredMessage(v.message)
         is Load.Ready -> {
-            val d = v.value
+            val d = v.value.video
+            val details = remember(v) { v.value.rows(container.init?.fieldLayout) }
             val favorite = actions?.isFavorite(d) ?: d.isFavorite
+            val stars = actions?.ratingOf?.invoke(d) ?: d.stars
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 48.dp, end = EDGE, top = 32.dp, bottom = 48.dp),
@@ -96,7 +103,10 @@ fun VideoInfoScreen(container: AppContainer, path: String, onPlay: (Video) -> Un
                                         val r = container.load { toggleFavorite(d.path) }
                                         if (r is Load.Ready) container.videoFavorites[d.path] = r.value
                                     }
-                                }) { Text(if (favorite) "★  Favorite" else "☆  Add to favorites") }
+                                }) { Text(if (favorite) "♥  Favorite" else "♡  Add to favorites") }
+                                OutlinedButton(onClick = { actions?.rate?.invoke(d.path, d.displayTitle, stars) }) {
+                                    Text(stars?.let { "${Stars.label(it)}  Rate" } ?: "★  Rate")
+                                }
                             }
                         }
                     }
@@ -117,9 +127,9 @@ fun VideoInfoScreen(container: AppContainer, path: String, onPlay: (Video) -> Un
                         }
                     }
                 }
-                if (d.metadata.isNotEmpty()) {
+                if (details.isNotEmpty()) {
                     item { Heading("Details") }
-                    for ((label, values) in d.metadata) item { InfoRow(label, values.joinToString(", ")) }
+                    for ((label, values) in details) item { InfoRow(label, values.joinToString(", ")) }
                 }
             }
             LaunchedEffect(Unit) { runCatching { playFocus.requestFocus() } }
@@ -129,10 +139,11 @@ fun VideoInfoScreen(container: AppContainer, path: String, onPlay: (Video) -> Un
 
 // ---- Cast bio -----------------------------------------------------------------------------------
 
-/** A performer like the web app's bio: photo, details, appearance, profile, libraries, all videos. Read-only except ★. */
+/** A performer like the web app's bio: photo, details, appearance, profile, libraries, all videos. Read-only except ♥. */
 @Composable
 fun CastScreen(container: AppContainer, name: String, onPlay: (Video) -> Unit) {
     val client = remember { container.client }
+    val layout = container.init?.fieldLayout                     // the web app's names for appearance fields (lustr 1.2+)
     var bio by remember { mutableStateOf<Load<CastBio>>(Load.Loading) }
     var profile by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     LaunchedEffect(name) {
@@ -182,10 +193,10 @@ fun CastScreen(container: AppContainer, name: String, onPlay: (Video) -> Unit) {
                                         }
                                     },
                                     modifier = Modifier.focusRequester(favFocus).padding(top = 6.dp),
-                                ) { Text(if (favorite) "★  Favorite" else "☆  Add to favorites") }
+                                ) { Text(if (favorite) "♥  Favorite" else "♡  Add to favorites") }
                                 Row(horizontalArrangement = Arrangement.spacedBy(24.dp), modifier = Modifier.padding(top = 8.dp)) {
                                     if (d.appearance.isNotEmpty()) {
-                                        Facts("Appearance", d.appearance.map { (k, v) -> pretty(k) to v.joinToString(", ") }, Modifier.weight(1f))
+                                        Facts("Appearance", d.appearance.map { (k, v) -> (layout?.label(k) ?: pretty(k)) to v.joinToString(", ") }, Modifier.weight(1f))
                                     }
                                     if (profile.isNotEmpty()) Facts("Profile", profile, Modifier.weight(1f))
                                     if (d.libraryDistribution.isNotEmpty()) {

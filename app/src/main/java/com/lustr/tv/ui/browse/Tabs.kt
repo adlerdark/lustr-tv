@@ -163,7 +163,12 @@ fun CollectionsTab(container: AppContainer, library: String, imageUrl: ImageUrl,
                 title = c.name,
                 imageUrl = c.cover?.let(imageUrl),
                 onClick = { vm.open(c) },
-                subtitle = (if (c.isSmart) "Smart · " else "") + "${c.count} video${if (c.count == 1) "" else "s"}",
+                // lustr 1.1+ says where its videos are (a library, a group or "Multiple libraries")
+                subtitle = listOfNotNull(
+                    "Smart".takeIf { c.isSmart },
+                    "${c.count} video${if (c.count == 1) "" else "s"}",
+                    c.fromLabel?.takeIf { it.isNotBlank() },
+                ).joinToString(" · "),
             )
         }
     } else {
@@ -258,7 +263,7 @@ fun MoviesTab(container: AppContainer, library: String, imageUrl: ImageUrl, onPl
                         .joinToString(" · "),
                 ) {
                     if (m.favorite) {
-                        Text("★", color = LustrColors.favorite, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+                        Text("♥", color = LustrColors.favorite, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
                     }
                 }
             }

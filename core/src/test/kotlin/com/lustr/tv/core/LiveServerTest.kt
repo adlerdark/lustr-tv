@@ -11,7 +11,7 @@ import org.junit.Test
 /**
  * Runs against a real lustr server, only when these are set (skipped otherwise):
  *   LUSTR_TEST_URL=http://192.168.1.20:8008 LUSTR_TEST_USER=... LUSTR_TEST_PASSWORD=... ./gradlew :core:test
- * Read-only apart from logging in and out.
+ * Read-only apart from logging in and out, and a favorite / rating changed and put back.
  */
 class LiveServerTest {
     private val url = System.getenv("LUSTR_TEST_URL")
@@ -114,7 +114,14 @@ class LiveServerTest {
             val was = client.video(v.path).isFavorite
             assertEquals(!was, client.toggleFavorite(v.path))
             assertEquals(was, client.toggleFavorite(v.path))           // back as it was
+            // ratings (lustr 1.1+): set 4.5, read it back, put back what it had
+            val stars = client.video(v.path).stars
+            client.setRating(v.path, 4.5)
+            assertEquals(4.5, client.videoDetails(v.path).video.stars!!, 0.0)
+            client.setRating(v.path, stars)
+            assertEquals(stars, client.video(v.path).stars)
         }
+        client.init().fieldLayout?.let { println("fields: ${it.detailFields.map { k -> it.label(k) ?: k }}") }
         // letters for the jump bar, markers and preview tiles
         val byTitle = client.videos(ALL_VIDEOS, VideoFilter(sortBy = SortOption.TITLE.value), limit = 2)
         println("letters: ${byTitle.letters}")

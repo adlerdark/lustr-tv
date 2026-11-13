@@ -30,7 +30,10 @@ object LustrColors {
     val activeBackground = Color(0xFF1E3A8A) // the open library in the sidebar
     val activeText = Color(0xFFDBEAFE)
     val danger = Color(0xFFF87171)
-    val favorite = Color(0xFFEAB308)
+    /** Favorites are hearts (as in lustr 1.1+). */
+    val favorite = Color(0xFFF43F5E)
+    /** Rating stars. */
+    val rating = Color(0xFFEAB308)
 }
 
 /** The web app's logo font: Tangerine Bold (SIL Open Font License, see third_party/). */

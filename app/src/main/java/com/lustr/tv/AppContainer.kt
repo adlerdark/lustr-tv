@@ -75,6 +75,12 @@ class AppContainer(context: Context) {
     /** Favorites changed on this TV (video path / performer name -> now favorite), so every card shows it at once. */
     val videoFavorites = mutableStateMapOf<String, Boolean>()
     val castFavorites = mutableStateMapOf<String, Boolean>()
+    /** Ratings set on this TV, path -> stars (0.0 = cleared), so cards and Video info show them at once. */
+    val videoRatings = mutableStateMapOf<String, Double>()
+
+    /** A video's rating, with one set on this TV taking over the one the server sent. */
+    fun ratingOf(path: String, fromServer: Double?): Double? =
+        if (path in videoRatings) videoRatings[path]?.takeIf { it > 0 } else fromServer
 
     /** Every failed request passes through here, so a 401 anywhere leads back to login. */
     fun onError(e: IOException) {

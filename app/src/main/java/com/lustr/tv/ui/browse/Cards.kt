@@ -58,6 +58,7 @@ import com.lustr.tv.core.HomeRow
 import com.lustr.tv.core.LetterIndex
 import com.lustr.tv.core.Letters
 import com.lustr.tv.core.PagedState
+import com.lustr.tv.core.Stars
 import com.lustr.tv.core.Video
 import com.lustr.tv.ui.theme.LustrColors
 import kotlinx.coroutines.delay
@@ -191,7 +192,19 @@ fun VideoCard(video: Video, imageUrl: ImageUrl, onClick: () -> Unit, modifier: M
             )
         }
         if (actions?.isFavorite(video) ?: video.isFavorite) {
-            Text("★", color = LustrColors.favorite, fontSize = 18.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+            Text("♥", color = LustrColors.favorite, fontSize = 18.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+        }
+        (actions?.ratingOf?.invoke(video) ?: video.stars)?.let { stars ->     // lustr 1.1+ ratings
+            Text(
+                "★ ${Stars.value(stars)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = LustrColors.rating,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(6.dp)
+                    .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
         }
         video.length?.let { length ->
             Text(
@@ -355,7 +368,7 @@ fun LetterBar(letters: List<LetterIndex>, modifier: Modifier = Modifier, onJump:
     }
 }
 
-/** A performer: portrait photo (or their initial), name, how many videos, ★ when a favorite. */
+/** A performer: portrait photo (or their initial), name, how many videos, ♥ when a favorite. */
 @Composable
 fun PersonCard(
     name: String,
@@ -374,7 +387,7 @@ fun PersonCard(
         aspect = 3f / 4f,
     ) {
         if (favorite) {
-            Text("★", color = LustrColors.favorite, fontSize = 18.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+            Text("♥", color = LustrColors.favorite, fontSize = 18.sp, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
         }
     }
 }

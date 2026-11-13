@@ -34,6 +34,7 @@ import com.lustr.tv.AppContainer
 import com.lustr.tv.Load
 import com.lustr.tv.core.FileVersion
 import com.lustr.tv.core.PlayQueue
+import com.lustr.tv.core.Stars
 import com.lustr.tv.core.Video
 import com.lustr.tv.ui.theme.LustrColors
 import kotlinx.coroutines.launch
@@ -49,9 +50,15 @@ class VideoActions(
     val animatedPreviews: () -> Boolean = { false },
     /** True (once) when focus should come back to this video's card: we've just come back from it. */
     val claimFocus: (Video) -> Boolean = { false },
+    /** The video's rating in stars (one set on this TV first), or null. */
+    val ratingOf: (Video) -> Double? = { it.stars },
+    /** Opens the Rate dialog for the video at [path] (its current rating marked). */
+    val rate: (path: String, title: String, current: Double?) -> Unit = { _, _, _ -> },
+    /** True while one of the host's windows is open (the player leaves the remote's keys to it). */
+    val windowOpen: () -> Boolean = { false },
 )
 
-/** Provided around all screens by [VideoActionsHost]; VideoCard uses it for long presses and the ★. */
+/** Provided around all screens by [VideoActionsHost]; VideoCard uses it for long presses and the ♥. */
 val LocalVideoActions = staticCompositionLocalOf<VideoActions?> { null }
 
 /**
@@ -74,6 +81,8 @@ fun VideoActionsHost(
     var menuFor by remember { mutableStateOf<Video?>(null) }
     var menuQueue by remember { mutableStateOf<PlayQueue?>(null) }
     var fileInfoFor by remember { mutableStateOf<Video?>(null) }
+    var rateFor by remember { mutableStateOf<RateRequest?>(null) }
+    val scope = rememberCoroutineScope()
     val actions = remember(container) {
         VideoActions(
             openMenu = { video, queue -> menuFor = video; menuQueue = queue },
@@ -81,6 +90,9 @@ fun VideoActionsHost(
             isFavorite = { v -> container.videoFavorites[v.path] ?: v.isFavorite },
             animatedPreviews = { container.settings.value.animatedPreviews },
             claimFocus = { v -> (container.returnFocusTo == v.path).also { if (it) container.returnFocusTo = null } },
+            ratingOf = { v -> container.ratingOf(v.path, v.stars) },
+            rate = { path, title, current -> rateFor = RateRequest(path, title, current) },
+            windowOpen = { menuFor != null || fileInfoFor != null || rateFor != null },
         )
     }
     CompositionLocalProvider(LocalVideoActions provides actions) { content() }
@@ -90,26 +102,51 @@ fun VideoActionsHost(
             container = container,
             video = video,
             favorite = actions.isFavorite(video),
+            rating = actions.ratingOf(video),
             inQueue = menuQueue?.title,
             onPlay = { fromStart -> menuFor = null; onPlay(video, fromStart, menuQueue) },
             onVideoInfo = { menuFor = null; onVideoInfo(video) },
             onFileInfo = { menuFor = null; fileInfoFor = video },
+            onRate = { menuFor = null; rateFor = RateRequest(video.path, video.displayTitle, actions.ratingOf(video)) },
             onDismiss = { menuFor = null },
         )
     }
     fileInfoFor?.let { video -> FileInfoDialog(container, video.path, onDismiss = { fileInfoFor = null }) }
+    rateFor?.let { r ->
+        var error by remember(r) { mutableStateOf<String?>(null) }
+        RateDialog(
+            title = r.title,
+            current = r.current,
+            error = error,
+            onPick = { stars ->
+                scope.launch {
+                    when (val done = container.load { setRating(r.path, stars) }) {
+                        is Load.Ready -> { container.videoRatings[r.path] = stars ?: 0.0; rateFor = null }
+                        is Load.Failed -> error = done.message
+                        Load.Loading -> Unit
+                    }
+                }
+            },
+            onDismiss = { rateFor = null },
+        )
+    }
 }
+
+/** Which video the Rate dialog is for. */
+private data class RateRequest(val path: String, val title: String, val current: Double?)
 
 @Composable
 private fun VideoMenu(
     container: AppContainer,
     video: Video,
     favorite: Boolean,
+    rating: Double?,
     /** The collection / movie it's played in (then the rest follows), or null. */
     inQueue: String?,
     onPlay: (fromStart: Boolean) -> Unit,
     onVideoInfo: () -> Unit,
     onFileInfo: () -> Unit,
+    onRate: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -124,7 +161,7 @@ private fun VideoMenu(
             inQueue?.let { Text("Then plays the rest of $it", style = MaterialTheme.typography.labelSmall, color = LustrColors.textSecondary, modifier = Modifier.padding(start = 36.dp, bottom = 4.dp)) }
             ChoiceRow(
                 if (favorite) "Remove from favorites" else "Add to favorites",
-                marker = if (favorite) "★" else "☆",
+                marker = if (favorite) "♥" else "♡",
                 markerColor = LustrColors.favorite,
                 onClick = {
                     scope.launch {
@@ -136,6 +173,7 @@ private fun VideoMenu(
                     }
                 },
             )
+            ChoiceRow(rating?.let { "Rate…  (${Stars.label(it)})" } ?: "Rate…", onClick = onRate, marker = "★", markerColor = LustrColors.rating)
             ChoiceRow("Video info", onClick = onVideoInfo, marker = "ⓘ")
             ChoiceRow("File info", onClick = onFileInfo, marker = "≡")
             error?.let { Text(it, color = LustrColors.danger, modifier = Modifier.padding(top = 8.dp)) }

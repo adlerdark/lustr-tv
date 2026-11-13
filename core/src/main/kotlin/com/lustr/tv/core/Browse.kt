@@ -137,27 +137,35 @@ data class VideoFilter(
     val resolution: ResolutionFilter? = null,
     /** Has chapters in the file / markers (lustr 0.17+), or null. */
     val chapters: ChaptersFilter? = null,
+    /** At least this many stars (1 - 5, lustr 1.1+), or null. */
+    val minStars: Int? = null,
 ) {
     /** How many filters (not search / sort) are on, for the "Filters (3)" button. Length counts once. */
     val activeCount: Int get() = tags.size + sites.size + (if (lengths.isNotEmpty()) 1 else 0) + (if (favoritesOnly) 1 else 0) +
-        (if (resolution != null) 1 else 0) + (if (chapters != null) 1 else 0)
+        (if (resolution != null) 1 else 0) + (if (chapters != null) 1 else 0) + (if (minStars != null) 1 else 0)
 
     /**
      * The search sent to the server: what was typed, plus the resolution / chapters filters, which
      * lustr takes as search keywords (res:hd, chapters:yes ...), like its web app does.
      */
     val serverQuery: String
-        get() = listOfNotNull(query.trim().ifEmpty { null }, resolution?.let { "res:${it.value}" }, chapters?.keyword).joinToString(" ")
+        get() = listOfNotNull(
+            query.trim().ifEmpty { null },
+            resolution?.let { "res:${it.value}" },
+            chapters?.keyword,
+            minStars?.let { "stars:$it" },
+        ).joinToString(" ")
 
     fun cycleTag(tag: String) = copy(tags = cycle(tags, tag))
     fun cycleSite(site: String) = copy(sites = cycle(sites, site))
     fun toggleLength(range: String) = copy(lengths = if (range in lengths) lengths - range else lengths + range)
     /** Clears tags, sites, favorites, resolution and chapters; the length (time) filter stays, as do search and sort. */
-    fun clearFilters() = copy(tags = emptyMap(), sites = emptyMap(), favoritesOnly = false, resolution = null, chapters = null)
+    fun clearFilters() = copy(tags = emptyMap(), sites = emptyMap(), favoritesOnly = false, resolution = null, chapters = null, minStars = null)
 
     /** Something "Clear" would remove: a search, or any filter but the length one. */
     val clearable: Boolean
-        get() = query.isNotBlank() || tags.isNotEmpty() || sites.isNotEmpty() || favoritesOnly || resolution != null || chapters != null
+        get() = query.isNotBlank() || tags.isNotEmpty() || sites.isNotEmpty() || favoritesOnly || resolution != null || chapters != null ||
+            minStars != null
 
     internal fun include(map: Map<String, Boolean>) = map.filterValues { it }.keys.joinToString(",").ifEmpty { null }
     internal fun exclude(map: Map<String, Boolean>) = map.filterValues { !it }.keys.joinToString(",").ifEmpty { null }
@@ -179,6 +187,21 @@ enum class ResolutionFilter(val value: String, val label: String) {
     HD("hd", "HD (720p and up)"),
     SD_HIGH("sdhigh", "SD high (480p and up)"),
     SD_LOW("sdlow", "SD low (anything)"),
+}
+
+/** Ratings in half stars, 0.5 - 5 (lustr 1.1+; the server stores them as text: "4.5", "" = none). */
+object Stars {
+    /** What the Rate dialog offers, best first. */
+    val CHOICES: List<Double> = (10 downTo 1).map { it / 2.0 }
+
+    /** "4.5" -> 4.5; blank, 0, negative or not a number -> null; above 5 -> 5. */
+    fun parse(text: String?): Double? = text?.trim()?.toDoubleOrNull()?.takeIf { it > 0 }?.coerceAtMost(5.0)
+
+    /** 4.5 -> "★★★★½" */
+    fun label(stars: Double): String = "★".repeat(stars.toInt()) + if (stars % 1.0 >= 0.5) "½" else ""
+
+    /** 4.5 -> "4.5", 4.0 -> "4": as the server stores it. */
+    fun value(stars: Double): String = if (stars % 1.0 == 0.0) stars.toInt().toString() else stars.toString()
 }
 
 /** Chapters in the file, or markers (yours or made from chapters). */

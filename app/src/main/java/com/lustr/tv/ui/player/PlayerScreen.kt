@@ -105,12 +105,14 @@ import com.lustr.tv.core.ResumeMode
 import com.lustr.tv.core.SpriteInfo
 import com.lustr.tv.core.SpriteSheet
 import com.lustr.tv.core.SpriteTile
+import com.lustr.tv.core.Stars
 import com.lustr.tv.core.StreamInfo
 import com.lustr.tv.core.StreamSource
 import com.lustr.tv.core.TvSettings
 import com.lustr.tv.core.Video
 import com.lustr.tv.core.VideoZoom
 import com.lustr.tv.ui.browse.ChoiceRow
+import com.lustr.tv.ui.browse.LocalVideoActions
 import com.lustr.tv.ui.browse.Panel
 import com.lustr.tv.ui.browse.SectionTitle
 import com.lustr.tv.ui.theme.LustrColors
@@ -232,6 +234,8 @@ fun PlayerScreen(
     val seek = remember { RemoteSeek(settings.seekStepSeconds * 1000L) }
 
     var title by remember { mutableStateOf("") }
+    var serverStars by remember { mutableStateOf<Double?>(null) }        // the rating the server sent (lustr 1.1+)
+    val actions = LocalVideoActions.current
     var sources by remember { mutableStateOf<List<StreamSource>>(emptyList()) }
     var captions by remember { mutableStateOf<List<CaptionTrack>>(emptyList()) }
     var streamInfo by remember { mutableStateOf<StreamInfo?>(null) }
@@ -319,6 +323,7 @@ fun PlayerScreen(
                 null
             }
             title = video?.displayTitle.orEmpty()
+            serverStars = video?.stars
             sprite = info.sprite
             loadTiles()
             info.videoId?.let { id ->
@@ -431,7 +436,8 @@ fun PlayerScreen(
     DisposableEffect(Unit) {
         container.keyInterceptor = handler@{ e ->
             lastInput = System.currentTimeMillis()
-            if (menuOpen || askResumeAt != null || sources.isEmpty()) return@handler false
+            // a window is open (⚙, resume question, Rate): the keys are its own
+            if (menuOpen || askResumeAt != null || sources.isEmpty() || actions?.windowOpen?.invoke() == true) return@handler false
             val code = e.keyCode
             val isMediaSeek = code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD || code == KeyEvent.KEYCODE_MEDIA_REWIND
             val isArrow = code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT
@@ -568,6 +574,8 @@ fun PlayerScreen(
             onAudio = { group -> selectTrack(player, C.TRACK_TYPE_AUDIO, group) },
             onSpeed = { s -> speed = s; player.setPlaybackSpeed(s) },
             onZoom = { z -> zoom = z },
+            rating = container.ratingOf(path, serverStars),
+            onRate = actions?.let { a -> { menuOpen = false; a.rate(path, title, container.ratingOf(path, serverStars)) } },
             onDismiss = { menuOpen = false },
         )
     }
@@ -758,12 +766,18 @@ private fun PlayerMenu(
     onAudio: (Tracks.Group?) -> Unit,
     onSpeed: (Float) -> Unit,
     onZoom: (VideoZoom) -> Unit,
+    rating: Double?,
+    /** Opens the Rate dialog (null: not available). */
+    onRate: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     val first = remember { FocusRequester() }
     Panel(onDismiss, side = true) {
         LazyColumn(Modifier.fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             item { SectionTitle("Playback", Modifier.padding(bottom = 4.dp)) }
+            onRate?.let { rate ->
+                item { ChoiceRow(rating?.let { "Rate  ${Stars.label(it)}" } ?: "Rate", onClick = rate, marker = "★", markerColor = LustrColors.rating) }
+            }
             item { MenuHeading("Now playing") }
             items(info) { line ->
                 Text(line, style = MaterialTheme.typography.bodySmall, color = LustrColors.textPrimary, modifier = Modifier.padding(start = 12.dp))

@@ -50,6 +50,7 @@ import com.lustr.tv.core.FilterCounts
 import com.lustr.tv.core.LengthRange
 import com.lustr.tv.core.ResolutionFilter
 import com.lustr.tv.core.SortOption
+import com.lustr.tv.core.Stars
 import com.lustr.tv.core.VideoFilter
 import com.lustr.tv.ui.components.TvTextField
 import com.lustr.tv.ui.theme.LustrColors
@@ -121,6 +122,28 @@ fun Panel(onDismiss: () -> Unit, side: Boolean = false, content: @Composable () 
     }
 }
 
+/** Pick a rating: 5 stars down to ½, or none. The current one is marked; picking saves it. */
+@Composable
+fun RateDialog(title: String, current: Double?, error: String?, onPick: (Double?) -> Unit, onDismiss: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    Panel(onDismiss) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            item { SectionTitle("Rate: $title", Modifier.padding(bottom = 8.dp)) }
+            items(Stars.CHOICES) { stars ->
+                ChoiceRow(
+                    "${Stars.label(stars)}   ${Stars.value(stars)}",
+                    onClick = { onPick(stars) },
+                    marker = if (stars == current) "✓" else "",
+                    modifier = if (stars == (current ?: 5.0)) Modifier.focusRequester(focus) else Modifier,
+                )
+            }
+            item { ChoiceRow("No rating", onClick = { onPick(null) }, marker = if (current == null) "✓" else "") }
+            error?.let { item { Text(it, color = LustrColors.danger, modifier = Modifier.padding(top = 8.dp)) } }
+        }
+    }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+}
+
 @Composable
 fun SearchDialog(title: String, initial: String, hint: String, onSearch: (String) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(initial) }
@@ -176,7 +199,7 @@ fun SortDialog(current: VideoFilter, onPick: (VideoFilter) -> Unit, onDismiss: (
 }
 
 /**
- * Favorites, length, resolution, chapters, tags and sites. A tag / site cycles: off -> ✓ must have -> ✕ must not have -> off.
+ * Favorites, length, resolution, rating, chapters, tags and sites. A tag / site cycles: off -> ✓ must have -> ✕ must not have -> off.
  * Changes apply straight away (the grid behind updates); the counts follow the other filters.
  */
 @Composable
@@ -205,7 +228,7 @@ fun FilterDialog(
                 ChoiceRow(
                     "Favorites only",
                     onClick = { onChange(filter.copy(favoritesOnly = !filter.favoritesOnly)) },
-                    marker = if (filter.favoritesOnly) "★" else "",
+                    marker = if (filter.favoritesOnly) "♥" else "",
                     markerColor = LustrColors.favorite,
                     modifier = Modifier.focusRequester(focus),
                 )
@@ -222,6 +245,11 @@ fun FilterDialog(
                 items(ResolutionFilter.entries) { r ->
                     ChoiceRow(r.label, onClick = { onChange(filter.copy(resolution = r.takeIf { it != filter.resolution })) },
                         marker = if (r == filter.resolution) "✓" else "")
+                }
+                item { Heading("Rating (at least)") }
+                items((5 downTo 1).toList()) { n ->
+                    ChoiceRow(Stars.label(n.toDouble()), onClick = { onChange(filter.copy(minStars = n.takeIf { it != filter.minStars })) },
+                        marker = if (n == filter.minStars) "✓" else "")
                 }
                 item { Heading("Chapters") }
                 items(ChaptersFilter.entries) { c ->

@@ -81,7 +81,7 @@ fun CastBrowserContent(container: AppContainer, onCast: (String) -> Unit) {
             OutlinedButton(onClick = { sort = CastSort.entries.after(sort) }) { Text("Sort: ${sort.label}") }
             OutlinedButton(onClick = { gender = CastGenderFilter.entries.after(gender) }) { Text(gender.label) }
             OutlinedButton(onClick = { category = CastCategoryFilter.entries.after(category) }) { Text(category.label) }
-            OutlinedButton(onClick = { favoritesOnly = !favoritesOnly }) { Text(if (favoritesOnly) "★ Favorites only" else "☆ Everyone") }
+            OutlinedButton(onClick = { favoritesOnly = !favoritesOnly }) { Text(if (favoritesOnly) "♥ Favorites only" else "♡ Everyone") }
             Spacer(Modifier.weight(1f))
             (shown as? Load.Ready)?.let { Text("${it.value.size} performers", color = LustrColors.textSecondary) }
         }

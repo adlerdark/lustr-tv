@@ -2,6 +2,7 @@ package com.lustr.tv.core
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -133,6 +134,9 @@ data class Video(
 
     val isFavorite: Boolean get() = favorite != 0
 
+    /** The rating in stars, 0.5 - 5 (lustr 1.1+), or null when it has none. */
+    val stars: Double? get() = Stars.parse(rating)
+
     /** 0..1 for a progress bar, or null when not started. */
     val progressFraction: Float?
         get() {
@@ -249,6 +253,59 @@ data class HomeRow(
     @SerialName("see_all") val seeAll: JsonObject? = null,
 )
 
+/**
+ * The metadata fields as the owner set them up (Settings -> Metadata -> Fields & editor layout, lustr 1.2+):
+ * the editor's tabs in order (hidden fields left out), each field's name, and which are performer attributes.
+ */
+@Serializable
+data class FieldLayout(
+    val tabs: List<FieldTab> = emptyList(),
+    val fields: Map<String, FieldInfo> = emptyMap(),
+    /** The fields a performer can have (their bio's appearance). */
+    val performer: List<String> = emptyList(),
+) {
+    /** The field's name as set in the web app, or null when the layout doesn't know it. */
+    fun label(key: String): String? = fields[key]?.label?.takeIf { it.isNotBlank() }
+
+    /** The fields Video info lists, in the editor's order: not hidden ones, and not the cast (shown with photos). */
+    val detailFields: List<String>
+        get() = tabs.flatMap { it.fields }.distinct().filter { it !in SHOWN_APART && fields[it]?.hidden != true }
+
+    private companion object {
+        val SHOWN_APART = setOf("cast", "male_cast")
+    }
+}
+
+@Serializable
+data class FieldTab(val name: String = "", val fields: List<String> = emptyList())
+
+@Serializable
+data class FieldInfo(
+    val label: String = "",
+    val hidden: Boolean = false,
+    val performer: Boolean = false,
+    val custom: Boolean = false,
+)
+
+/** A video's details for Video info: the record and the raw reply, which also holds custom fields. */
+data class VideoDetails(val video: Video, val raw: JsonObject) {
+    /**
+     * (field name, values) in the web app's order and names, empty ones left out. Without a layout
+     * (lustr before 1.2) the fixed list of fields.
+     */
+    fun rows(layout: FieldLayout?): List<Pair<String, List<String>>> {
+        if (layout == null || layout.tabs.isEmpty()) return video.metadata
+        return layout.detailFields.mapNotNull { key ->
+            val values = when (val v = raw[key]) {
+                is JsonArray -> v.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf { s -> s.isNotBlank() } }
+                is JsonPrimitive -> listOfNotNull(v.contentOrNull?.takeIf { it.isNotBlank() })
+                else -> emptyList()
+            }
+            if (values.isEmpty()) null else (layout.label(key) ?: key.replaceFirstChar { it.uppercase() }) to values
+        }
+    }
+}
+
 /** What a library opens with: [tab] and [sort] / [descending] (null = the TV's own default). */
 data class LibraryOpening(val tab: LibraryTab? = null, val sort: SortOption? = null, val descending: Boolean? = null)
 
@@ -272,6 +329,8 @@ data class InitData(
     val config: JsonObject? = null,
     /** library name -> its settings (sort, content: "images" for an images-only library, ...). */
     @SerialName("library_settings") val librarySettings: Map<String, JsonElement> = emptyMap(),
+    /** The metadata fields as set up in the web app (lustr 1.2+): order, names, hidden and custom ones. */
+    @SerialName("field_layout") val fieldLayout: FieldLayout? = null,
 ) {
     /** "both", "videos" or "images" (lustr 0.20+); null when the server doesn't say. */
     fun libraryContent(name: String): String? =
@@ -325,6 +384,8 @@ data class VideoCollection(
     val count: Int = 0,
     /** Relative thumbnail URL of its cover video, or null. */
     val cover: String? = null,
+    /** Where its videos are: a library, the smallest group holding them, or "Multiple libraries" (lustr 1.1+). */
+    @SerialName("from_label") val fromLabel: String? = null,
 ) {
     val isSmart: Boolean get() = kind == "smart"
 }
